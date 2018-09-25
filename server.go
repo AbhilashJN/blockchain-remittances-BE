@@ -5,6 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/AbhilashJN/blockchain-remittances-BE/transaction"
+
+	"github.com/AbhilashJN/blockchain-remittances-BE/account"
+
 	"github.com/AbhilashJN/blockchain-remittances-BE/db"
 )
 
@@ -26,12 +30,12 @@ func registration(w http.ResponseWriter, r *http.Request) {
 			BankAccountID: r.FormValue("BankAccountID"),
 		})
 		if err != nil {
-			fmt.Fprintln(w, "registration failed :", err)
+			fmt.Fprintf(w, "registration failed: %v", err)
 			return
 		}
 		cd, err := db.ReadCustomerDetailsFromCommonCustomersDB(r.FormValue("PhoneNumber"))
 		if err != nil {
-			fmt.Fprintln(w, "registration failed:", err)
+			fmt.Fprintf(w, "registration failed: %v", err)
 			return
 		}
 		w.WriteHeader(http.StatusCreated)
@@ -47,7 +51,7 @@ func getReceiverInfo(w http.ResponseWriter, r *http.Request) {
 		}
 		cd, err := db.ReadCustomerDetailsFromCommonCustomersDB(r.FormValue("PhoneNumber"))
 		if err != nil {
-			fmt.Fprintln(w, "reading failed:", err)
+			fmt.Fprintf(w, "reading failed: %v", err)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -58,7 +62,48 @@ func getReceiverInfo(w http.ResponseWriter, r *http.Request) {
 
 func sendPayment(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
-		fmt.Fprintln(w, "payment successful")
+		if err := r.ParseForm(); err != nil {
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
+			return
+		}
+		senderInfo, err := db.ReadCustomerDetailsFromCommonCustomersDB(r.FormValue("senderPhone"))
+		if err != nil {
+			fmt.Fprintf(w, "reading failed: %v", err)
+			return
+		}
+		senderBankStellarAdresses, err := db.ReadStellarAddressesOfBank(senderInfo.BankName)
+		if err != nil {
+			fmt.Fprintf(w, "error: %v", err)
+			return
+		}
+		senderBankSeed := senderBankStellarAdresses.DistributorSeed
+		senderBankAddress, err := getKeyPair(senderBankStellarAdresses.DistributorSeed)
+		if err != nil {
+			fmt.Fprintf(w, "error: %v", err)
+			return
+		}
+		senderBankStellarAccount := account.Account{Seed: senderBankSeed, Address: senderBankAddress.Address()}
+
+		receiverInfo, err := db.ReadCustomerDetailsFromCommonCustomersDB(r.FormValue("receiverPhone"))
+		if err != nil {
+			fmt.Fprintf(w, "reading failed: %v", err)
+			return
+		}
+		receiverBankStellarAdresses, err := db.ReadStellarAddressesOfBank(receiverInfo.BankName)
+		if err != nil {
+			fmt.Fprintf(w, "error: %v", err)
+			return
+		}
+		receiverBankSeed := receiverBankStellarAdresses.DistributorSeed
+		receiverBankAddress, err := getKeyPair(receiverBankStellarAdresses.DistributorSeed)
+		if err != nil {
+			fmt.Fprintf(w, "error: %v", err)
+			return
+		}
+		receiverBankStellarAccount := account.Account{Seed: receiverBankSeed, Address: receiverBankAddress.Address()}
+
+		transaction.Transact(senderBankStellarAccount, receiverBankStellarAccount, r.FormValue("Amount"))
+
 	}
 }
 

@@ -2,36 +2,53 @@ package db
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 
 	"github.com/boltdb/bolt"
 )
 
 // StellarAddressesOfBank is
+
+type data interface {
+	String() string
+}
+
+//StellarAddressesOfBank implements data, contains
 type StellarAddressesOfBank struct {
 	SourceSeed, IssuerSeed, DistributorSeed string
 }
 
-// CustomerBankAccountDetails is
+//CustomerBankAccountDetails implements data, contains
 type CustomerBankAccountDetails struct {
 	Name, Balance, AccountID string
 }
 
-func decodeStellarAdressesOfBank(data []byte) (*StellarAddressesOfBank, error) {
-	var bsa = &StellarAddressesOfBank{}
-	err := json.Unmarshal(data, bsa)
-	if err != nil {
-		return nil, err
-	}
-	return bsa, nil
+//CustomerDetails implements data, contains
+type CustomerDetails struct {
+	CustomerName, BankName, BankAccountID string
 }
 
-func decodeCustomerBankAccountDetails(data []byte) (*CustomerBankAccountDetails, error) {
-	var cbad = &CustomerBankAccountDetails{}
-	err := json.Unmarshal(data, cbad)
+func (sab *StellarAddressesOfBank) String() string {
+	return fmt.Sprintf("%+v \n", sab)
+}
+
+func (sab *CustomerBankAccountDetails) String() string {
+	return fmt.Sprintf("%+v \n", sab)
+}
+
+func (sab *CustomerDetails) String() string {
+	return fmt.Sprintf("%+v \n", sab)
+}
+
+//decodeByteSlice returns
+func decodeByteSlice(dBdata []byte, target data) (data, error) {
+	err := json.Unmarshal(dBdata, target)
 	if err != nil {
 		return nil, err
 	}
-	return cbad, nil
+
+	return target, nil
 }
 
 // UpdateAccountBalence returns
@@ -85,14 +102,14 @@ func GetAccountDetails(bankName, customerBankAccountID string) (*CustomerBankAcc
 	defer db.Close()
 	bucketName := bankName + "-balances"
 
-	var customerAccountDetails *CustomerBankAccountDetails
+	var accountDetails data
 	// Read the value back from a separate read-only transaction.
 	if err := db.View(
 		func(tx *bolt.Tx) error {
 			bucket := tx.Bucket([]byte(bucketName))
 			key := []byte(customerBankAccountID)
 
-			customerAccountDetails, err = decodeCustomerBankAccountDetails(bucket.Get(key))
+			accountDetails, err = decodeByteSlice(bucket.Get(key), &CustomerBankAccountDetails{})
 			if err != nil {
 				return err
 			}
@@ -102,7 +119,10 @@ func GetAccountDetails(bankName, customerBankAccountID string) (*CustomerBankAcc
 	); err != nil {
 		return nil, err
 	}
-
+	customerAccountDetails, ok := accountDetails.(*CustomerBankAccountDetails)
+	if !ok {
+		return nil, errors.New("Could not read Customer Bank Account Details : Type assertion failed")
+	}
 	return customerAccountDetails, nil
 }
 
@@ -190,13 +210,13 @@ func RetreiveStellarAddressesOfBank(bankName string) (*StellarAddressesOfBank, e
 	}
 	defer db.Close()
 
-	var sab *StellarAddressesOfBank
+	var dataVal data
 	if err := db.View(
 		func(tx *bolt.Tx) error {
 			b := tx.Bucket([]byte("stellarAddresses"))
 			key := []byte(bankName)
 
-			sab, err = decodeStellarAdressesOfBank(b.Get(key))
+			dataVal, err = decodeByteSlice(b.Get(key), &StellarAddressesOfBank{})
 			if err != nil {
 				return err
 			}
@@ -207,5 +227,64 @@ func RetreiveStellarAddressesOfBank(bankName string) (*StellarAddressesOfBank, e
 		return nil, err
 	}
 
-	return sab, nil
+	stellarAddress, ok := dataVal.(*StellarAddressesOfBank)
+	if !ok {
+		return nil, errors.New("Could not read Stellar Bank Address : Type assertion failed")
+	}
+	return stellarAddress, nil
+}
+
+//CreateCentralCustomerDB returns
+func CreateCentralCustomerDB() error {
+	db, err := bolt.Open("CentralCustomerDB"+".db", 0600, nil)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	if err := db.Update(
+		func(tx *bolt.Tx) error {
+			_, err := tx.CreateBucketIfNotExists([]byte("CustomerDetails"))
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+	); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+//ReadCustomerDetails returns
+func ReadCustomerDetails(phoneNumber string) (*CustomerDetails, error) {
+	db, err := bolt.Open("CentralCustomerDB.db", 0600, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+
+	var dataVal data
+	if err := db.View(
+		func(tx *bolt.Tx) error {
+			b := tx.Bucket([]byte("stellarAddresses"))
+			key := []byte(phoneNumber)
+
+			dataVal, err = decodeByteSlice(b.Get(key), &StellarAddressesOfBank{})
+			if err != nil {
+				return err
+			}
+
+			return nil
+		},
+	); err != nil {
+		return nil, err
+	}
+
+	cd, ok := dataVal.(*CustomerDetails)
+	if !ok {
+		return nil, errors.New("Could not read Customer Details: Type assertion failed")
+	}
+
+	return cd, nil
 }

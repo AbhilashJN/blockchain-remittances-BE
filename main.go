@@ -241,7 +241,7 @@ func PrintBalencesOfAllBankStellarAdresses(stellarAddressesOfJPM *db.StellarAddr
 	fmt.Println("DISTRIBUTION ACCOUNT END-------------------------------------------------")
 }
 
-func foo() {
+func main() {
 	// lumenTransaction()
 	// customAssetTransaction()
 	// issuerKP, issuerSeed := getIssuer()
@@ -280,4 +280,6 @@ func foo() {
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
+	// StartServer()
+	db.CreateCentralCustomerDB()
 }

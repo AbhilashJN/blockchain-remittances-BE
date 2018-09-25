@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/shksa/blockchain-remittances-BE/account"
+	"github.com/AbhilashJN/blockchain-remittances-BE/account"
 	"github.com/stellar/go/build"
 	"github.com/stellar/go/clients/horizon"
 )

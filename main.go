@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/shksa/blockchain-remittances-BE/account"
-	"github.com/shksa/blockchain-remittances-BE/db"
-	"github.com/shksa/blockchain-remittances-BE/transaction"
+	"github.com/AbhilashJN/blockchain-remittances-BE/account"
+	"github.com/AbhilashJN/blockchain-remittances-BE/db"
+	"github.com/AbhilashJN/blockchain-remittances-BE/transaction"
 	"github.com/stellar/go/build"
 	"github.com/stellar/go/clients/horizon"
 	"github.com/stellar/go/keypair"

@@ -11,7 +11,7 @@ import (
 // StellarAddressesOfBank is
 
 type data interface {
-	String() string
+	String()
 }
 
 //StellarAddressesOfBank implements data, contains
@@ -35,16 +35,16 @@ type CustomerDetails struct {
 	CustomerName, BankName, BankAccountID string
 }
 
-func (sab *StellarAddressesOfBank) String() string {
-	return fmt.Sprintf("%+v \n", sab)
+func (sab *StellarAddressesOfBank) String() {
+	fmt.Printf("%+v \n", sab)
 }
 
-func (sab *CustomerBankAccountDetails) String() string {
-	return fmt.Sprintf("%+v \n", sab)
+func (sab *CustomerBankAccountDetails) String() {
+	fmt.Printf("%+v \n", sab)
 }
 
-func (sab *CustomerDetails) String() string {
-	return fmt.Sprintf("%+v \n", sab)
+func (sab *CustomerDetails) String() {
+	fmt.Printf("%+v \n", sab)
 }
 
 //decodeByteSlice returns

@@ -262,13 +262,13 @@ func main() {
 	// }
 	// fmt.Printf("%+v \n", *stellarAddressesOfJPM)
 
-	stellarAddressesOfSBI, err := db.RetreiveStellarAddressesOfBank("SBI")
+	stellarAddressesOfSBI, err := db.ReadStellarAddressesOfBank("SBI")
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("%+v \n", *stellarAddressesOfSBI)
 
-	stellarAddressesOfJPM, err := db.RetreiveStellarAddressesOfBank("JPMORGAN")
+	stellarAddressesOfJPM, err := db.ReadStellarAddressesOfBank("JPMORGAN")
 	if err != nil {
 		log.Fatal(err)
 	}

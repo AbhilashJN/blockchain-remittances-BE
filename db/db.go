@@ -26,8 +26,9 @@ type TransactionDetails struct {
 
 //CustomerBankAccountDetails implements data, contains
 type CustomerBankAccountDetails struct {
-	Name, Balance string
-	Transactions  []TransactionDetails
+	Name         string
+	Balance      float64
+	Transactions []TransactionDetails
 }
 
 //CustomerDetails implements data, contains
@@ -58,7 +59,7 @@ func decodeByteSlice(dBdata []byte, target data) (data, error) {
 }
 
 // UpdateCustomerBankAccountBalence returns
-func UpdateCustomerBankAccountBalence(bankName, customerBankAccountID, newBalance string) error {
+func UpdateCustomerBankAccountBalence(bankName, customerBankAccountID string, newBalance float64) error {
 	// Open the database.
 	db, err := bolt.Open(bankName+".db", 0666, nil)
 	if err != nil {
@@ -102,8 +103,42 @@ func UpdateCustomerBankAccountBalence(bankName, customerBankAccountID, newBalanc
 	return nil
 }
 
-// GetCustomerBankAccountDetails returns
-func GetCustomerBankAccountDetails(bankName, customerBankAccountID string) (*CustomerBankAccountDetails, error) {
+// WriteCustomerBankAccountDetails returns
+func WriteCustomerBankAccountDetails(bankName string, customerBankAccountID string, customerBankAccountDetails *CustomerBankAccountDetails) error {
+	// Open the database.
+	db, err := bolt.Open(bankName+".db", 0666, nil)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	bucketName := "AccountDetails"
+
+	// Execute several commands within a read-write transaction.
+	if err := db.Update(
+		func(tx *bolt.Tx) error {
+			bucket := tx.Bucket([]byte(bucketName))
+			key := []byte(customerBankAccountID)
+
+			encoded, err := json.Marshal(customerBankAccountDetails)
+			if err != nil {
+				return err
+			}
+
+			if err := bucket.Put(key, encoded); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ReadCustomerBankAccountDetails returns
+func ReadCustomerBankAccountDetails(bankName, customerBankAccountID string) (*CustomerBankAccountDetails, error) {
 	// Open the database.
 	db, err := bolt.Open(bankName+".db", 0666, nil)
 	if err != nil {
@@ -152,7 +187,7 @@ func CreateDBForBank(bankName string) error {
 			}
 
 			encoded, err := json.Marshal(&CustomerBankAccountDetails{
-				Balance: "10000000",
+				Balance: 10000000.0,
 				Name:    bankName,
 			})
 			if err != nil {
@@ -173,7 +208,7 @@ func CreateDBForBank(bankName string) error {
 }
 
 // CreateStellarAddressesOfBankDB returns
-func CreateStellarAddressesOfBankDB(bankName string) error {
+func CreateStellarAddressesOfBankDB() error {
 	db, err := bolt.Open("BankStellarAddresses.db", 0600, nil)
 	if err != nil {
 		return err
@@ -228,8 +263,8 @@ func WriteStellarAddressesForBank(bankName string, addresses *StellarAddressesOf
 	return nil
 }
 
-// RetreiveStellarAddressesOfBank returns
-func RetreiveStellarAddressesOfBank(bankName string) (*StellarAddressesOfBank, error) {
+// ReadStellarAddressesOfBank returns
+func ReadStellarAddressesOfBank(bankName string) (*StellarAddressesOfBank, error) {
 	db, err := bolt.Open("BankStellarAddresses.db", 0600, nil)
 	if err != nil {
 		return nil, err

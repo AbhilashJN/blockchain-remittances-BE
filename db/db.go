@@ -19,9 +19,15 @@ type StellarAddressesOfBank struct {
 	SourceSeed, IssuerSeed, DistributorSeed string
 }
 
+//TransactionDetails contains
+type TransactionDetails struct {
+	From, To, Amount, TransactionID string
+}
+
 //CustomerBankAccountDetails implements data, contains
 type CustomerBankAccountDetails struct {
-	Name, Balance, AccountID string
+	Name, Balance string
+	Transactions  []TransactionDetails
 }
 
 //CustomerDetails implements data, contains
@@ -142,9 +148,8 @@ func CreateDBForBank(bankName string) error {
 			}
 
 			encoded, err := json.Marshal(&CustomerBankAccountDetails{
-				Balance:   "10000000",
-				Name:      bankName,
-				AccountID: bankName,
+				Balance: "10000000",
+				Name:    bankName,
 			})
 			if err != nil {
 				return err

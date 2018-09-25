@@ -280,6 +280,5 @@ func main() {
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
-	// StartServer()
-	db.CreateCentralCustomerDB()
+	StartServer()
 }

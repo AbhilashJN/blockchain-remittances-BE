@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -33,15 +34,28 @@ func registration(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintln(w, "registration failed:", err)
 			return
 		}
+		w.WriteHeader(http.StatusCreated)
 		fmt.Fprintf(w, "Registration successful: %s => %+v", r.FormValue("PhoneNumber"), cd)
 	}
 }
 
 func getReceiverInfo(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		fmt.Fprintln(w, "dummy customer info")
+		if err := r.ParseForm(); err != nil {
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
+			return
+		}
+		cd, err := db.ReadCustomerDetailsFromCommonCustomersDB(r.FormValue("PhoneNumber"))
+		if err != nil {
+			fmt.Fprintln(w, "reading failed:", err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(*cd)
 	}
 }
+
 func sendPayment(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		fmt.Fprintln(w, "payment successful")

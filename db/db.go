@@ -332,7 +332,7 @@ func ReadCustomerDetailsFromCommonCustomersDB(phoneNumber string) (*CustomerDeta
 			b := tx.Bucket([]byte("CustomerDetails"))
 			key := []byte(phoneNumber)
 
-			dataVal, err = decodeByteSlice(b.Get(key), &StellarAddressesOfBank{})
+			dataVal, err = decodeByteSlice(b.Get(key), &CustomerDetails{})
 			if err != nil {
 				return err
 			}

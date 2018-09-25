@@ -262,17 +262,17 @@ func main() {
 	// }
 	// fmt.Printf("%+v \n", *stellarAddressesOfJPM)
 
-	stellarAddressesOfSBI, err := db.ReadStellarAddressesOfBank("SBI")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("%+v \n", *stellarAddressesOfSBI)
+	// stellarAddressesOfSBI, err := db.ReadStellarAddressesOfBank("SBI")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// fmt.Printf("%+v \n", *stellarAddressesOfSBI)
 
-	stellarAddressesOfJPM, err := db.ReadStellarAddressesOfBank("JPMORGAN")
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("%+v \n", *stellarAddressesOfJPM)
+	// stellarAddressesOfJPM, err := db.ReadStellarAddressesOfBank("JPMORGAN")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// fmt.Printf("%+v \n", *stellarAddressesOfJPM)
 
 	// err = bank.IssueToDistribAccount(stellarAddressesOfJPM.DistributorSeed, stellarAddressesOfJPM.IssuerSeed, "JPMRT", "1000000")
 	// if err != nil {
@@ -286,5 +286,6 @@ func main() {
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
-	// StartServer()
+
+	StartServer()
 }

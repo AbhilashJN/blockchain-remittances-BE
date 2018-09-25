@@ -27,7 +27,7 @@ func sendPayment(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-/* StartServer starts the server*/
+// StartServer starts the server
 func StartServer() {
 	http.HandleFunc("/ping", pong)
 	http.HandleFunc("/registration", registration)

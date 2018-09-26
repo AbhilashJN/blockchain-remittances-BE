@@ -5,10 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/AbhilashJN/blockchain-remittances-BE/transaction"
-
-	"github.com/AbhilashJN/blockchain-remittances-BE/account"
-
 	"github.com/AbhilashJN/blockchain-remittances-BE/db"
 )
 
@@ -82,28 +78,26 @@ func sendPayment(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "error: %v", err)
 			return
 		}
-		senderBankStellarAccount := account.Account{Seed: senderBankSeed, Address: senderBankAddress.Address()}
 
 		receiverInfo, err := db.ReadCustomerDetailsFromCommonCustomersDB(r.FormValue("receiverPhone"))
 		if err != nil {
 			fmt.Fprintf(w, "reading failed: %v", err)
 			return
 		}
+
 		receiverBankStellarAdresses, err := db.ReadStellarAddressesOfBank(receiverInfo.BankName)
 		if err != nil {
 			fmt.Fprintf(w, "error: %v", err)
 			return
 		}
-		receiverBankSeed := receiverBankStellarAdresses.DistributorSeed
+
 		receiverBankAddress, err := getKeyPair(receiverBankStellarAdresses.DistributorSeed)
 		if err != nil {
 			fmt.Fprintf(w, "error: %v", err)
 			return
 		}
-		receiverBankStellarAccount := account.Account{Seed: receiverBankSeed, Address: receiverBankAddress.Address()}
 
-		transaction.Transact(senderBankStellarAccount, receiverBankStellarAccount, r.FormValue("Amount"))
-
+		sendAssetFromAtoB(senderBankAddress, receiverBankAddress, senderBankSeed, buildAsset(senderBankAddress, senderInfo.BankName+"T"), r.FormValue("Amount"))
 	}
 }
 

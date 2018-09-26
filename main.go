@@ -137,7 +137,7 @@ func trustAsset(recipientKP keypair.KP, recipientSeed string, asset build.Asset)
 	}
 }
 
-func createCustomAssetByIssuer(issuerKP keypair.KP, assetCode string) build.Asset {
+func buildAsset(issuerKP keypair.KP, assetCode string) build.Asset {
 	asset := build.CreditAsset(assetCode, issuerKP.Address())
 	return asset
 }

@@ -11,6 +11,11 @@ import (
 	"github.com/stellar/go/keypair"
 )
 
+// SIDKeyPairs returns
+type SIDKeyPairs struct {
+	Source, Issuer, Distributor keypair.KP
+}
+
 // CreateNewAccFromSourceAcc returns
 func CreateNewAccFromSourceAcc(sourceAcc *keypair.Full, initBalance string) (string, error) {
 	sourceAccSeed := sourceAcc.Seed()
@@ -72,8 +77,8 @@ func CreateSourceAccount() (*keypair.Full, error) {
 }
 
 // CreateTrust returns
-func CreateTrust(receiverSeed, issuerSeed string, assetCode string) error {
-	issuer, err := keypair.Parse(issuerSeed)
+func CreateTrust(receiverSeed, senderSeed string, assetCode string) error {
+	issuer, err := keypair.Parse(senderSeed)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -186,7 +191,7 @@ func OnboardBank(bankName string, assetCode string) error {
 		return err
 	}
 
-	err = db.StoreStellarAddressesOfBank(bankName, &db.StellarAddressesOfBank{
+	err = db.WriteStellarAddressesForBank(bankName, &db.StellarAddressesOfBank{
 		SourceSeed:      sourceAccKeyPair.Seed(),
 		IssuerSeed:      issuerSeed,
 		DistributorSeed: distributorSeed,

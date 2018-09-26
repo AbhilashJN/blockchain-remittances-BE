@@ -16,6 +16,7 @@ func registration(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "registration successful")
 	}
 }
+
 func getReceiverInfo(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		fmt.Fprintln(w, "dummy customer info")

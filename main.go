@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/account"
+	"github.com/AbhilashJN/blockchain-remittances-BE/bank"
 	"github.com/AbhilashJN/blockchain-remittances-BE/db"
 	"github.com/AbhilashJN/blockchain-remittances-BE/transaction"
 	"github.com/stellar/go/build"
@@ -22,12 +23,12 @@ func lumenTransaction() {
 	println(<-messages)
 	println(<-messages)
 	println("Sender to receiver done")
-	transaction.Transact(receiver, sender, "555")
-	go transaction.WatchLiveActivityOf(sender.Address, messages)
-	go transaction.WatchLiveActivityOf(receiver.Address, messages)
-	println(<-messages)
-	println(<-messages)
-	println("receiver to sender done")
+	// transaction.Transact(receiver, sender, "555")
+	// go transaction.WatchLiveActivityOf(sender.Address, messages)
+	// go transaction.WatchLiveActivityOf(receiver.Address, messages)
+	// println(<-messages)
+	// println(<-messages)
+	// println("receiver to sender done")
 	println("all routines exited")
 }
 
@@ -137,7 +138,7 @@ func trustAsset(recipientKP keypair.KP, recipientSeed string, asset build.Asset)
 	}
 }
 
-func createCustomAssetByIssuer(issuerKP keypair.KP, assetCode string) build.Asset {
+func buildAsset(issuerKP keypair.KP, assetCode string) build.Asset {
 	asset := build.CreditAsset(assetCode, issuerKP.Address())
 	return asset
 }
@@ -215,30 +216,34 @@ func createAndSendCustomTokenFromAtoB(issuerKP, recipientKP keypair.KP, issuerSe
 	fmt.Println("_____________________________________after shit_______________________________________")
 }
 
-// PrintBalencesOfAllBankStellarAdresses returns
-func PrintBalencesOfAllBankStellarAdresses(stellarAddressesOfJPM *db.StellarAddressesOfBank) {
-	jpmSourceKeyPair, err := getKeyPair(stellarAddressesOfJPM.SourceSeed)
+// GetSIDkeyPairsOfBank returns
+func GetSIDkeyPairsOfBank(stellarAddressesOfBank *db.StellarAddressesOfBank) bank.SIDKeyPairs {
+	SourceKeyPair, err := getKeyPair(stellarAddressesOfBank.SourceSeed)
 	if err != nil {
 		log.Fatal(err)
 	}
-	jpmIssuerKeyPair, err := getKeyPair(stellarAddressesOfJPM.IssuerSeed)
+	IssuerKeyPair, err := getKeyPair(stellarAddressesOfBank.IssuerSeed)
 	if err != nil {
 		log.Fatal(err)
 	}
-	jpmDistributorKeyPair, err := getKeyPair(stellarAddressesOfJPM.DistributorSeed)
+	DistributorKeyPair, err := getKeyPair(stellarAddressesOfBank.DistributorSeed)
 	if err != nil {
 		log.Fatal(err)
 	}
+	return bank.SIDKeyPairs{Source: SourceKeyPair, Issuer: IssuerKeyPair, Distributor: DistributorKeyPair}
+}
 
-	fmt.Println("SOURCE ACCOUNT START-------------------------------------------------")
-	account.PrintAccountDetails(jpmSourceKeyPair.Address())
-	fmt.Println("SOURCE ACCOUNT END-------------------------------------------------")
-	fmt.Println("ISSUER ACCOUNT START:-------------------------------------------------")
-	account.PrintAccountDetails(jpmIssuerKeyPair.Address())
-	fmt.Println("ISSUER ACCOUNT END-------------------------------------------------")
-	fmt.Println("DISTRIBUTION ACCOUNT START:-------------------------------------------------")
-	account.PrintAccountDetails(jpmDistributorKeyPair.Address())
-	fmt.Println("DISTRIBUTION ACCOUNT END-------------------------------------------------")
+// PrintBalencesOfSIDaccounts returns
+func PrintBalencesOfSIDaccounts(stellarAdressesOfBank bank.SIDKeyPairs) {
+	fmt.Println("SOURCE ACCOUNT START------------------------------------------------\n-")
+	account.PrintAccountDetails(stellarAdressesOfBank.Source.Address())
+	fmt.Println("SOURCE ACCOUNT END------------------------------------------------\n-")
+	fmt.Println("ISSUER ACCOUNT START:------------------------------------------------\n-")
+	account.PrintAccountDetails(stellarAdressesOfBank.Issuer.Address())
+	fmt.Println("ISSUER ACCOUNT END------------------------------------------------\n-")
+	fmt.Println("DISTRIBUTION ACCOUNT START:------------------------------------------------\n-")
+	account.PrintAccountDetails(stellarAdressesOfBank.Distributor.Address())
+	fmt.Println("DISTRIBUTION ACCOUNT END------------------------------------------------\n-")
 }
 
 func main() {
@@ -246,7 +251,7 @@ func main() {
 	// customAssetTransaction()
 	// issuerKP, issuerSeed := getIssuer()
 	// recipientKP, recipientSeed := getRecipient()
-	// customAsset := createCustomAssetByIssuer(issuerKP, "ABC")
+	// customAsset := buildAsset(issuerKP, "ABC")
 	// createAndSendCustomTokenFromAtoB(issuerKP, recipientKP, issuerSeed, recipientSeed, customAsset, "999")
 	// sendAssetFromAtoB(recipientKP, issuerKP, recipientSeed, customAsset, "999")
 	// account.PrintAccountDetails(issuerKP.Address())
@@ -256,35 +261,49 @@ func main() {
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
-	// stellarAddressesOfJPM, err := db.RetreiveStellarAddressesOfBank("JPMORGAN")
+	// stellarSeedsOfJPM, err := db.RetreiveStellarAddressesOfBank("JPMORGAN")
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
-	// fmt.Printf("%+v \n", *stellarAddressesOfJPM)
+	// fmt.Printf("%+v \n", *stellarSeedsOfJPM)
 
-	stellarAddressesOfSBI, err := db.RetreiveStellarAddressesOfBank("SBI")
+	stellarSeedsOfSBI, err := db.ReadStellarAddressesOfBank("SBI")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("%+v \n", *stellarAddressesOfSBI)
+	// fmt.Printf("%+v \n", stellarSeedsOfSBI)
 
-	stellarAddressesOfJPM, err := db.RetreiveStellarAddressesOfBank("JPMORGAN")
+	stellarSeedsOfJPM, err := db.ReadStellarAddressesOfBank("JPM")
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("%+v \n", *stellarAddressesOfJPM)
+	// fmt.Printf("%+v \n", stellarSeedsOfJPM)
+	// stellarAddressesOfSBI := GetSIDkeyPairsOfBank(stellarSeedsOfSBI)
+	// stellarAddressesOfJPM := GetSIDkeyPairsOfBank(stellarSeedsOfJPM)
 
-	// err = bank.IssueToDistribAccount(stellarAddressesOfJPM.DistributorSeed, stellarAddressesOfJPM.IssuerSeed, "JPMRT", "1000000")
-	// if err != nil {
+	// PrintBalencesOfSIDaccounts(stellarAddressesOfSBI)
+	// PrintBalencesOfSIDaccounts(stellarAddressesOfJPM)
+	// JpmtAsset := buildAsset(stellarAddressesOfJPM.Issuer, "JPMT")
+	// SbitAsset := buildAsset(stellarAddressesOfSBI.Issuer, "SBIT")
+
+	// if err := bank.CreateTrust(stellarSeedsOfSBI.DistributorSeed, stellarSeedsOfJPM.IssuerSeed, "JPMT"); err != nil {
 	// 	log.Fatal(err)
 	// }
-	// err := bank.OnboardBank("JPMORGAN", "JPMT")
-	// if err != nil {
+
+	// if err := bank.CreateTrust(stellarSeedsOfJPM.DistributorSeed, stellarSeedsOfSBI.IssuerSeed, "SBIT"); err != nil {
 	// 	log.Fatal(err)
 	// }
-	// err = bank.OnboardBank("SBI", "SBIT")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// StartServer()
+
+	// bank.IssueToDistribAccount(stellarSeedsOfJPM.DistributorSeed, stellarSeedsOfJPM.IssuerSeed, "JPMT", "100")
+	// bank.IssueToDistribAccount(stellarSeedsOfSBI.DistributorSeed, stellarSeedsOfSBI.IssuerSeed, "SBIT", "100")
+	// var messages = make(chan string, 4)
+	// PrintBalencesOfSIDaccounts(stellarAddressesOfSBI)
+	// PrintBalencesOfSIDaccounts(stellarAddressesOfJPM)
+	// go transaction.WatchLiveActivityOf(stellarAddressesOfSBI.Distributor.Address(), messages)
+	// go transaction.WatchLiveActivityOf(stellarAddressesOfJPM.Distributor.Address(), messages)
+	// sendAssetFromAtoB(stellarAddressesOfJPM.Distributor, stellarAddressesOfSBI.Distributor, stellarSeedsOfJPM.DistributorSeed, JpmtAsset, "22")
+	// println(<-messages)
+	// println(<-messages)
+	// PrintBalencesOfSIDaccounts(stellarAddressesOfSBI)
+	// PrintBalencesOfSIDaccounts(stellarAddressesOfJPM)
 }

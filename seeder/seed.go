@@ -26,8 +26,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("seeding BankStellarAdresses...")
-	if err := db.WriteStellarAddressesForBank("SBI", &db.StellarAddressesOfBank{
+	fmt.Println("seeding BankStellarSeeds...")
+	if err := db.WriteStellarSeedsForBank("SBI", &db.StellarSeedsOfBank{
 		SourceSeed:      "SBNSSMFUYGUIPXMOEKSAGD524THQKE6S5NUEGZVZ3LNB422G427DNAIL",
 		IssuerSeed:      "SBZK7WTUPFIY55HRRW4SYH2KFZVMLH7STS2PTQHOW4RAF7UWRB74BGKM",
 		DistributorSeed: "SDP3446MMEKWDSUKJ65GASOBNL6L42UVBPAXKKGOMCSVARB3WMLHJVQY",
@@ -35,7 +35,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := db.WriteStellarAddressesForBank("JPM", &db.StellarAddressesOfBank{
+	if err := db.WriteStellarSeedsForBank("JPM", &db.StellarSeedsOfBank{
 		SourceSeed:      "SB7SZBJ5BUYWQGQZ3TVSTDN7FY7F6ERPFI22TBJRDBYHOKUDRVLG4KFW",
 		IssuerSeed:      "SBJW3HMQG4AUCFO63YGNCBJRQAODMGOOQBLQT74TBSUYHYPDU56WZB3V",
 		DistributorSeed: "SDZ2T2L4LT76MIPUIA5LJLYGPDSF4CWIWVID5U32H6N62N5OEZ2VSTBX",

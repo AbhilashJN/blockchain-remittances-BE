@@ -1,4 +1,4 @@
-package recieve
+package receive
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 )
 
 // ListenForPayments returns
-func ListenForPayments(accountAddress string, messages chan string) {
+func ListenForPayments(accountAddress string) {
 	ctx := context.Background()
 
 	cursor := horizon.Cursor("now")

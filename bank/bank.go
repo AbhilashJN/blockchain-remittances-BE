@@ -191,7 +191,7 @@ func OnboardBank(bankName string, assetCode string) error {
 		return err
 	}
 
-	err = db.WriteStellarAddressesForBank(bankName, &db.StellarAddressesOfBank{
+	err = db.WriteStellarSeedsForBank(bankName, &db.StellarSeedsOfBank{
 		SourceSeed:      sourceAccKeyPair.Seed(),
 		IssuerSeed:      issuerSeed,
 		DistributorSeed: distributorSeed,

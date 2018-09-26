@@ -42,4 +42,18 @@ func main() {
 	}); err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Println("seeding CommonCustomers...")
+	if err := db.WriteCustomerDetailsToCommonCustomersDB("9976543210", &db.CustomerDetails{CustomerName: "Sreekar", BankName: "SBI", BankAccountID: "123ABC"}); err != nil {
+		log.Fatal(err)
+	}
+	if err := db.WriteCustomerDetailsToCommonCustomersDB("9876543210", &db.CustomerDetails{CustomerName: "Abhilash", BankName: "SBI", BankAccountID: "456DEF"}); err != nil {
+		log.Fatal(err)
+	}
+	if err := db.WriteCustomerDetailsToCommonCustomersDB("8976543210", &db.CustomerDetails{CustomerName: "Milan", BankName: "JPM", BankAccountID: "789GHI"}); err != nil {
+		log.Fatal(err)
+	}
+	if err := db.WriteCustomerDetailsToCommonCustomersDB("8876543210", &db.CustomerDetails{CustomerName: "Sandeep", BankName: "JPM", BankAccountID: "321KLM"}); err != nil {
+		log.Fatal(err)
+	}
 }

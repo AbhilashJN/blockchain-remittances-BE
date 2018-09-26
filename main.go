@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 
@@ -171,7 +172,7 @@ func getRecipient() (keypair.KP, string) {
 	return recipientKP, recipientSeed
 }
 
-func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount string) {
+func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount string) error {
 	paymentTx, err := build.Transaction(
 		build.SourceAccount{AddressOrSeed: A.Address()},
 		build.TestNetwork,
@@ -182,21 +183,21 @@ func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount 
 		),
 	)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	paymentTxe, err := paymentTx.Sign(Aseed)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	paymentTxeB64, err := paymentTxe.Base64()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	_, err = horizon.DefaultTestNetClient.SubmitTransaction(paymentTxeB64)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-
+	return nil
 }
 
 func createAndSendCustomTokenFromAtoB(issuerKP, recipientKP keypair.KP, issuerSeed, recipientSeed string, customAsset build.Asset, assetAmout string) {
@@ -246,7 +247,11 @@ func PrintBalencesOfSIDaccounts(stellarAdressesOfBank bank.SIDKeyPairs) {
 	fmt.Println("DISTRIBUTION ACCOUNT END------------------------------------------------\n-")
 }
 
+var bankName = flag.String("b", "SBI", "enter bank name")
+var portNum = flag.String("p", "8080", "enter port number")
+
 func main() {
+	flag.Parse()
 	// lumenTransaction()
 	// customAssetTransaction()
 	// issuerKP, issuerSeed := getIssuer()
@@ -267,16 +272,16 @@ func main() {
 	// }
 	// fmt.Printf("%+v \n", *stellarSeedsOfJPM)
 
-	stellarSeedsOfSBI, err := db.ReadStellarAddressesOfBank("SBI")
-	if err != nil {
-		log.Fatal(err)
-	}
-	// fmt.Printf("%+v \n", stellarSeedsOfSBI)
+	// stellarSeedsOfSBI, err := db.ReadStellarAddressesOfBank("SBI")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// // fmt.Printf("%+v \n", stellarSeedsOfSBI)
 
-	stellarSeedsOfJPM, err := db.ReadStellarAddressesOfBank("JPM")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// stellarSeedsOfJPM, err := db.ReadStellarAddressesOfBank("JPM")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 	// fmt.Printf("%+v \n", stellarSeedsOfJPM)
 	// stellarAddressesOfSBI := GetSIDkeyPairsOfBank(stellarSeedsOfSBI)
 	// stellarAddressesOfJPM := GetSIDkeyPairsOfBank(stellarSeedsOfJPM)
@@ -306,4 +311,5 @@ func main() {
 	// println(<-messages)
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfSBI)
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfJPM)
+	StartServer()
 }

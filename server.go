@@ -62,22 +62,19 @@ func sendPayment(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "ParseForm() err: %v", err)
 			return
 		}
+
 		senderInfo, err := db.ReadCustomerDetailsFromCommonCustomersDB(r.FormValue("senderPhone"))
 		if err != nil {
 			fmt.Fprintf(w, "reading failed: %v", err)
 			return
 		}
-		senderBankStellarAdresses, err := db.ReadStellarAddressesOfBank(senderInfo.BankName)
+
+		senderBankStellarSeeds, err := db.ReadStellarAddressesOfBank(senderInfo.BankName)
 		if err != nil {
 			fmt.Fprintf(w, "error: %v", err)
 			return
 		}
-		senderBankSeed := senderBankStellarAdresses.DistributorSeed
-		senderBankAddress, err := getKeyPair(senderBankStellarAdresses.DistributorSeed)
-		if err != nil {
-			fmt.Fprintf(w, "error: %v", err)
-			return
-		}
+		senderBankStellarAddressKP := GetSIDkeyPairsOfBank(senderBankStellarSeeds)
 
 		receiverInfo, err := db.ReadCustomerDetailsFromCommonCustomersDB(r.FormValue("receiverPhone"))
 		if err != nil {
@@ -85,19 +82,20 @@ func sendPayment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		receiverBankStellarAdresses, err := db.ReadStellarAddressesOfBank(receiverInfo.BankName)
+		receiverBankStellarSeeds, err := db.ReadStellarAddressesOfBank(receiverInfo.BankName)
 		if err != nil {
 			fmt.Fprintf(w, "error: %v", err)
 			return
 		}
 
-		receiverBankAddress, err := getKeyPair(receiverBankStellarAdresses.DistributorSeed)
-		if err != nil {
+		receiverBankStellarAddressKP := GetSIDkeyPairsOfBank(receiverBankStellarSeeds)
+
+		if err := sendAssetFromAtoB(senderBankStellarAddressKP.Distributor, receiverBankStellarAddressKP.Distributor, senderBankStellarSeeds.DistributorSeed, buildAsset(senderBankStellarAddressKP.Issuer, senderInfo.BankName+"T"), r.FormValue("Amount")); err != nil {
 			fmt.Fprintf(w, "error: %v", err)
 			return
 		}
 
-		sendAssetFromAtoB(senderBankAddress, receiverBankAddress, senderBankSeed, buildAsset(senderBankAddress, senderInfo.BankName+"T"), r.FormValue("Amount"))
+		fmt.Fprintf(w, "success")
 	}
 }
 
@@ -107,5 +105,5 @@ func StartServer() {
 	http.HandleFunc("/registration", registration)
 	http.HandleFunc("/getReceiverInfo", getReceiverInfo)
 	http.HandleFunc("/sendPayment", sendPayment)
-	http.ListenAndServe("localhost:8080", nil)
+	http.ListenAndServe(fmt.Sprintf("localhost:%s", *portNum), nil)
 }

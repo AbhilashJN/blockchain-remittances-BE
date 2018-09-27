@@ -36,7 +36,11 @@ func registration(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "registration failed: %v", err)
 			return
 		}
-		fmt.Println("asd")
+		err = db.WriteCustomerBankAccountDetails(cd.BankName, cd.BankAccountID, &db.CustomerBankAccountDetails{Name: cd.CustomerName, Balance: 1000.0, Transactions: []db.TransactionDetails{}})
+		if err != nil {
+			fmt.Fprintf(w, "registration failed: %v", err)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(*cd)
@@ -83,7 +87,7 @@ func sendPayment(w http.ResponseWriter, r *http.Request) {
 		senderBankAccountID := r.FormValue("senderBankAccountID")
 		receiverBank := r.FormValue("receiverBankName")
 		receiverBankAccountID := r.FormValue("receiverBankAccountID")
-		amountToCredit := r.FormValue("amount")
+		amountToCredit := r.FormValue("Amount")
 		amountInFloat, err := strconv.ParseFloat(amountToCredit, 64)
 		if err != nil {
 			fmt.Fprintf(w, "strconv.ParseFloat(amountToCredit, 64) failed: %v", err)
@@ -152,12 +156,31 @@ func sendPayment(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getTransactionDetails(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		if err := r.ParseForm(); err != nil {
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
+			return
+		}
+		cd, err := db.ReadCustomerBankAccountDetails(*bankNameFlag, r.FormValue("BankAccountID"))
+		if err != nil {
+			fmt.Fprintf(w, "reading failed: %v", err)
+			return
+		}
+		fmt.Println(r.FormValue("BankAccountID"))
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(*cd)
+	}
+}
+
 //StartServer starts the server
 func StartServer() {
 	http.HandleFunc("/ping", pong)
 	http.HandleFunc("/registration", registration)
 	http.HandleFunc("/getReceiverInfo", getReceiverInfo)
 	http.HandleFunc("/sendPayment", sendPayment)
+	http.HandleFunc("/getTransactionDetails", getTransactionDetails)
 	fmt.Println("\n\nserver is starting...")
 	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", *portNumFlag), nil)
 	if err != nil {

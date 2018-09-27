@@ -1,7 +1,8 @@
 package db
 
 import (
-	"encoding/json"
+	"bytes"
+	"encoding/gob"
 	"errors"
 	"fmt"
 
@@ -22,6 +23,7 @@ type StellarSeedsOfBank struct {
 //TransactionDetails contains
 type TransactionDetails struct {
 	From, To, TransactionID string
+	TransactionType         string // debit or credit
 	Amount                  float64
 }
 
@@ -29,10 +31,10 @@ type TransactionDetails struct {
 type CustomerBankAccountDetails struct {
 	Name         string
 	Balance      float64
-	Transactions []*TransactionDetails
+	Transactions []TransactionDetails
 }
 
-//CustomerDetails implements data, contains
+// CustomerDetails implements data, contains
 type CustomerDetails struct {
 	CustomerName, BankName, BankAccountID string
 }
@@ -49,80 +51,124 @@ func (sab *CustomerDetails) String() {
 	fmt.Printf("%+v \n", sab)
 }
 
-//decodeByteSlice returns
-func decodeByteSlice(dBdata []byte, target data) (data, error) {
-	err := json.Unmarshal(dBdata, target)
+//gobDecode returns
+// func decodeByteSlice(dBdata []byte, target data) (data, error) {
+// 	fmt.Printf("\n\n In decodeByteSlice, dBdata: %s \n\n", dBdata)
+// 	err := json.Unmarshal(dBdata, target)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("json.Unmarshal(dBdata, target) failed: %s", err.Error())
+// 	}
+
+// 	return target, nil
+// }
+
+func gobEncode(structValue interface{}) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	enc := gob.NewEncoder(buf)
+	err := enc.Encode(structValue)
 	if err != nil {
 		return nil, err
 	}
+	return buf.Bytes(), nil
+}
 
+func gobDecode(data []byte, target data) (data, error) {
+	// fmt.Printf("In gobDecode: %s", data)
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+	err := dec.Decode(target)
+	if err != nil {
+		return nil, err
+	}
 	return target, nil
 }
 
 // UpdateCustomerBankAccountBalence returns
-func UpdateCustomerBankAccountBalence(bankName string, transactionDetails *TransactionDetails, updateType string) (*CustomerBankAccountDetails, error) {
+func UpdateCustomerBankAccountBalence(txDetails *TransactionDetails, bankName, customerAccountID string) (*CustomerBankAccountDetails, *CustomerBankAccountDetails, error) {
 	// Open the database.
 	db, err := bolt.Open(bankName+".db", 0666, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer db.Close()
 	bucketName := "AccountDetails"
+	bankPoolAccountID := bankName + "-POOL-ID"
+	// fmt.Printf("bankPoolAccountID : %q", bankPoolAccountID)
 
-	var updatedRecord *CustomerBankAccountDetails
-	// Execute several commands within a read-write transaction.
+	var updatedRecordOfCustomer *CustomerBankAccountDetails
+	var updatedRecordOfBank *CustomerBankAccountDetails
+
 	if err := db.Update(
 		func(tx *bolt.Tx) error {
 			bucket := tx.Bucket([]byte(bucketName))
-			customerAccountID := []byte(transactionDetails.To)
-			// bankPoolAccountID := []byte(transactionDetails.To)
 
-			accDetOfCustomer, err := decodeByteSlice(bucket.Get(customerAccountID), &CustomerBankAccountDetails{})
+			accDetOfCustomer, err := gobDecode(bucket.Get([]byte(customerAccountID)), &CustomerBankAccountDetails{})
 			if err != nil {
-				return err
+				return fmt.Errorf("gobDecode(bucket.Get([]byte(customerAccountID)), &CustomerBankAccountDetails{}) failed: %s", err.Error())
 			}
 
-			// accDetOfBankPool, err := decodeByteSlice(bucket.Get(bankPoolAccountID), &CustomerBankAccountDetails{})
-			// if err != nil {
-			// 	return err
-			// }
+			accDetOfBankPool, err := gobDecode(bucket.Get([]byte(bankPoolAccountID)), &CustomerBankAccountDetails{})
+			if err != nil {
+				return fmt.Errorf("gobDecode(bucket.Get([]byte(bankPoolAccountID)), &CustomerBankAccountDetails{}) failed: %s", err.Error())
+			}
 
 			customerAccountDetails, ok := accDetOfCustomer.(*CustomerBankAccountDetails)
 			if !ok {
 				return errors.New("Could not update Customer Bank Account Details : Type assertion failed")
 			}
-			// bankPoolaccountDetails, ok := accDetOfBankPool.(*CustomerBankAccountDetails)
-			// if !ok {
-			// 	return errors.New("Could not update Customer Bank Account Details : Type assertion failed")
-			// }
+			bankPoolaccountDetails, ok := accDetOfBankPool.(*CustomerBankAccountDetails)
+			if !ok {
+				return errors.New("Could not update Customer Bank Account Details : Type assertion failed")
+			}
 
-			switch updateType {
+			switch txDetails.TransactionType {
 			case "credit":
-				customerAccountDetails.Balance += transactionDetails.Amount
+				fmt.Printf("In credit case")
+				bankPoolaccountDetails.Balance -= txDetails.Amount
+				customerAccountDetails.Balance += txDetails.Amount
+				customerAccountDetails.Transactions = append(customerAccountDetails.Transactions, *txDetails)
+				bankPoolaccountDetails.Transactions = append(bankPoolaccountDetails.Transactions, TransactionDetails{
+					To: customerAccountID, TransactionType: "debit", Amount: txDetails.Amount, TransactionID: fmt.Sprintf("PoolToCustomerTx:CustomerAccId-%s", customerAccountID),
+				})
+				fmt.Printf("bankPoolaccountDetails: %+v", bankPoolaccountDetails)
 			case "debit":
-				customerAccountDetails.Balance -= transactionDetails.Amount
+				bankPoolaccountDetails.Balance += txDetails.Amount
+				customerAccountDetails.Balance -= txDetails.Amount
+				customerAccountDetails.Transactions = append(customerAccountDetails.Transactions, *txDetails)
+				bankPoolaccountDetails.Transactions = append(bankPoolaccountDetails.Transactions, TransactionDetails{
+					From: customerAccountID, TransactionType: "credit", Amount: txDetails.Amount, TransactionID: fmt.Sprintf("CustomerToPoolTx::CustomerAccId-%s", customerAccountID),
+				})
 			default:
 				return errors.New("invalid updateType param passed. should be 'credit' or 'debit'")
 			}
 
-			encoded, err := json.Marshal(customerAccountDetails)
+			customerAccountDetailsEncoded, err := gobEncode(customerAccountDetails)
 			if err != nil {
-				return err
+				return fmt.Errorf("gobEncode(customerAccountDetails) failed: %s", err.Error())
 			}
 
-			if err := bucket.Put(customerAccountID, encoded); err != nil {
-				return err
+			bankPoolaccountDetailsEncoded, err := gobEncode(bankPoolaccountDetails)
+			if err != nil {
+				return fmt.Errorf("gobEncode(bankPoolaccountDetails) failed: %s", err.Error())
 			}
 
-			updatedRecord = customerAccountDetails // copy in another var to return the updated record to the caller
+			if err := bucket.Put([]byte(customerAccountID), customerAccountDetailsEncoded); err != nil {
+				return fmt.Errorf("bucket.Put([]byte(customerAccountID), customerAccountDetailsEncoded) failed: %s", err.Error())
+			}
 
+			if err := bucket.Put([]byte(bankPoolAccountID), bankPoolaccountDetailsEncoded); err != nil {
+				return fmt.Errorf("bucket.Put([]byte(bankPoolAccountID), bankPoolaccountDetailsEncoded) failed: %s", err.Error())
+			}
+
+			updatedRecordOfCustomer = customerAccountDetails // copy in another var to return the updated record to the caller
+			updatedRecordOfBank = bankPoolaccountDetails
 			return nil
 		},
 	); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return updatedRecord, nil
+	return updatedRecordOfCustomer, updatedRecordOfBank, nil
 }
 
 // WriteCustomerBankAccountDetails returns
@@ -141,7 +187,7 @@ func WriteCustomerBankAccountDetails(bankName string, customerBankAccountID stri
 			bucket := tx.Bucket([]byte(bucketName))
 			key := []byte(customerBankAccountID)
 
-			encoded, err := json.Marshal(customerBankAccountDetails)
+			encoded, err := gobEncode(customerBankAccountDetails)
 			if err != nil {
 				return err
 			}
@@ -176,7 +222,7 @@ func ReadCustomerBankAccountDetails(bankName, customerBankAccountID string) (*Cu
 			bucket := tx.Bucket([]byte(bucketName))
 			key := []byte(customerBankAccountID)
 
-			accountDetails, err = decodeByteSlice(bucket.Get(key), &CustomerBankAccountDetails{})
+			accountDetails, err = gobDecode(bucket.Get(key), &CustomerBankAccountDetails{})
 			if err != nil {
 				return err
 			}
@@ -203,22 +249,22 @@ func CreateDBForBank(bankName string) error {
 
 	if err := db.Update(
 		func(tx *bolt.Tx) error {
-			b, err := tx.CreateBucket([]byte("AccountDetails"))
+			_, err := tx.CreateBucket([]byte("AccountDetails"))
 			if err != nil {
 				return err
 			}
 
-			encoded, err := json.Marshal(&CustomerBankAccountDetails{
-				Balance: 10000000.0,
-				Name:    bankName,
-			})
-			if err != nil {
-				return err
-			}
+			// encoded, err := gobEncode(&CustomerBankAccountDetails{
+			// 	Balance: 10000000.0,
+			// 	Name:    bankName,
+			// })
+			// if err != nil {
+			// 	return err
+			// }
 
-			if err := b.Put([]byte(bankName), encoded); err != nil {
-				return err
-			}
+			// if err := b.Put([]byte(bankName), encoded); err != nil {
+			// 	return err
+			// }
 
 			return nil
 		},
@@ -266,7 +312,7 @@ func WriteStellarSeedsForBank(bankName string, addresses *StellarSeedsOfBank) er
 			b := tx.Bucket([]byte("StellarSeeds"))
 			key := []byte(bankName)
 
-			encoded, err := json.Marshal(addresses)
+			encoded, err := gobEncode(addresses)
 			if err != nil {
 				return err
 			}
@@ -299,7 +345,7 @@ func ReadStellarSeedsOfBank(bankName string) (*StellarSeedsOfBank, error) {
 			b := tx.Bucket([]byte("StellarSeeds"))
 			key := []byte(bankName)
 
-			dataVal, err = decodeByteSlice(b.Get(key), &StellarSeedsOfBank{})
+			dataVal, err = gobDecode(b.Get(key), &StellarSeedsOfBank{})
 			if err != nil {
 				return err
 			}
@@ -354,7 +400,7 @@ func ReadCustomerDetailsFromCommonCustomersDB(phoneNumber string) (*CustomerDeta
 			b := tx.Bucket([]byte("CustomerDetails"))
 			key := []byte(phoneNumber)
 
-			dataVal, err = decodeByteSlice(b.Get(key), &CustomerDetails{})
+			dataVal, err = gobDecode(b.Get(key), &CustomerDetails{})
 			if err != nil {
 				return err
 			}
@@ -386,7 +432,7 @@ func WriteCustomerDetailsToCommonCustomersDB(phoneNumber string, customerDetails
 			b := tx.Bucket([]byte("CustomerDetails"))
 			key := []byte(phoneNumber)
 
-			encoded, err := json.Marshal(customerDetails)
+			encoded, err := gobEncode(customerDetails)
 			if err != nil {
 				return err
 			}

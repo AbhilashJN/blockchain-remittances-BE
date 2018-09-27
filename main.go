@@ -173,7 +173,7 @@ func getRecipient() (keypair.KP, string) {
 	return recipientKP, recipientSeed
 }
 
-func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount string, memo string) error {
+func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount string, memo string) (*horizon.TransactionSuccess, error) {
 	paymentTx, err := build.Transaction(
 		build.TestNetwork,
 		build.SourceAccount{AddressOrSeed: A.Address()},
@@ -185,25 +185,25 @@ func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount 
 		),
 	)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	paymentTxe, err := paymentTx.Sign(Aseed)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	paymentTxeB64, err := paymentTxe.Base64()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	_, err = horizon.DefaultTestNetClient.SubmitTransaction(paymentTxeB64)
+	resp, err := horizon.DefaultTestNetClient.SubmitTransaction(paymentTxeB64)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &resp, nil
 }
 
 func createAndSendCustomTokenFromAtoB(issuerKP, recipientKP keypair.KP, issuerSeed, recipientSeed string, customAsset build.Asset, assetAmout string) {
@@ -327,10 +327,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = bank.IssueToDistribAccount(senderBankStellarSeeds.DistributorSeed, senderBankStellarSeeds.IssuerSeed, *bankNameFlag+"T", "100")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// err = bank.IssueToDistribAccount(senderBankStellarSeeds.DistributorSeed, senderBankStellarSeeds.IssuerSeed, *bankNameFlag+"T", "100")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
 	fmt.Printf("server for %q,\nAccount Address: %q \n", *bankNameFlag, senderBankStellarAddressKP.Distributor.Address())
 

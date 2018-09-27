@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/db"
 )
@@ -79,37 +81,72 @@ func sendPayment(w http.ResponseWriter, r *http.Request) {
 		}
 		senderName := r.FormValue("senderName")
 		senderBankAccountID := r.FormValue("senderBankAccountID")
-		// receiverName := r.FormValue("receiverName") // Not required
 		receiverBank := r.FormValue("receiverBankName")
 		receiverBankAccountID := r.FormValue("receiverBankAccountID")
+		amountToCredit := r.FormValue("amount")
+		amountInFloat, err := strconv.ParseFloat(amountToCredit, 64)
+		if err != nil {
+			fmt.Fprintf(w, "strconv.ParseFloat(amountToCredit, 64) failed: %v", err)
+			return
+		}
 
 		receiverBankStellarSeeds, err := db.ReadStellarSeedsOfBank(receiverBank)
 		if err != nil {
-			fmt.Fprintf(w, "ReadStellarSeedsOfBank failed: %v", err)
+			fmt.Fprintf(w, "db.ReadStellarSeedsOfBank(receiverBank) failed: %v", err)
 			return
 		}
 
 		receiverBankStellarAddressKP, err := GetSIDkeyPairsOfBank(receiverBankStellarSeeds)
 		if err != nil {
-			fmt.Fprintf(w, "GetSIDkeyPairsOfBank failederror: %v", err)
+			fmt.Fprintf(w, "GetSIDkeyPairsOfBank(receiverBankStellarSeeds) failederror: %v", err)
 			return
 		}
 
-		if err := sendAssetFromAtoB(senderBankStellarAddressKP.Distributor,
-			receiverBankStellarAddressKP.Distributor,
-			senderBankStellarSeeds.DistributorSeed,
-			buildAsset(senderBankStellarAddressKP.Issuer, *bankNameFlag+"T"),
-			r.FormValue("Amount"),
-			fmt.Sprintf("%s;%s;%s", receiverBankAccountID, senderBankAccountID, senderName)); err != nil {
+		resp, err := sendAssetFromAtoB(senderBankStellarAddressKP.Distributor, receiverBankStellarAddressKP.Distributor,
+			senderBankStellarSeeds.DistributorSeed, buildAsset(senderBankStellarAddressKP.Issuer, *bankNameFlag+"T"),
+			amountToCredit, fmt.Sprintf("%s;%s;%s", receiverBankAccountID, senderBankAccountID, senderName))
+
+		if err != nil {
 			fmt.Fprintf(w, "error in send payment transaction: %v", err)
 			return
 		}
 
-		// transactionDetails := &db.TransactionDetails{From: senderAccountID, To: accountIDtoCredit, Amount: amount, TransactionID: transaction.ID}
-		// updatedAccountDetails, err := db.UpdateCustomerBankAccountBalence(*bankNameFlag, transactionDetails, "credit")
+		fmt.Printf("Successful payment transaction by %q to %q on the stellar network\n:", *bankNameFlag, receiverBank)
+		// spew.Dump(resp)
+		// fmt.Println("Ledger:", resp.Ledger)
+		// fmt.Println("Hash:", resp.Hash)
+		// txe, err := utils.DecodeTransactionEnvelope(resp.Env)
 		// if err != nil {
-		// 	return err
+		// 	fmt.Fprintf(w, "utils.DecodeTransactionEnvelope(resp.Env) failed: %v", err)
+		// 	return
 		// }
+
+		transactionDetails := &db.TransactionDetails{TransactionType: "debit", To: receiverBankAccountID, Amount: amountInFloat, TransactionID: resp.Hash}
+
+		updatedCustomerAccountInfo, updatedBankPoolAccountInfo, err := db.UpdateCustomerBankAccountBalence(transactionDetails, *bankNameFlag, senderBankAccountID)
+		if err != nil {
+			fmt.Fprintf(w, "db.UpdateCustomerBankAccountBalence(transactionDetails, bankName, customerAccountIDtoCredit) failed: %s", err.Error())
+			return
+		}
+		// spew.Dump(updatedAccountDetails)
+		fmt.Println("\n\nSender customer bank account details after succesful transaction")
+		fmt.Printf("Account holder name: %q\n", updatedCustomerAccountInfo.Name)
+		fmt.Printf("Account holder balance: %f\n", updatedCustomerAccountInfo.Balance)
+		fmt.Println("--------------------------------------------Transaction history----------------------------------------------")
+		for _, tx := range updatedCustomerAccountInfo.Transactions {
+			fmt.Printf("TransactionID: %q\nTransactionType: %q\nTo: %q\nAmount: %f\n", tx.TransactionID, tx.TransactionType, tx.To, tx.Amount)
+			fmt.Println("------------------------------------------------------------------------------------------")
+		}
+		fmt.Println("--------------------------------------------Transaction history----------------------------------------------")
+
+		fmt.Println("\n\nBank pool account detils")
+		// fmt.Printf("updatedBankPoolAccountInfo : %T\n\n", updatedBankPoolAccountInfo)
+		fmt.Printf("Balance: %f\n", updatedBankPoolAccountInfo.Balance)
+		fmt.Println("--------------------------------------------Transaction history----------------------------------------------")
+		for _, tx := range updatedBankPoolAccountInfo.Transactions {
+			fmt.Printf("TransactionID: %q\nTransactionType: %q\nFrom: %q\n, Amount: %f\n", tx.TransactionID, tx.TransactionType, tx.From, tx.Amount)
+		}
+		fmt.Println("--------------------------------------------Transaction history----------------------------------------------")
 
 		fmt.Fprintf(w, "success")
 	}
@@ -121,5 +158,9 @@ func StartServer() {
 	http.HandleFunc("/registration", registration)
 	http.HandleFunc("/getReceiverInfo", getReceiverInfo)
 	http.HandleFunc("/sendPayment", sendPayment)
-	http.ListenAndServe(fmt.Sprintf("localhost:%s", *portNumFlag), nil)
+	fmt.Println("\n\nserver is starting...")
+	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", *portNumFlag), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

@@ -17,12 +17,18 @@ func main() {
 	if err := db.WriteCustomerBankAccountDetails("SBI", "456DEF", &db.CustomerBankAccountDetails{Name: "Abhilash", Balance: 1000.0}); err != nil {
 		log.Fatal(err)
 	}
+	if err := db.WriteCustomerBankAccountDetails("SBI", "SBI-POOL-ID", &db.CustomerBankAccountDetails{Name: "SBI-POOl-ACC", Balance: 1e7}); err != nil {
+		log.Fatal(err)
+	}
 
 	fmt.Println("seeding JPMORGAN...")
 	if err := db.WriteCustomerBankAccountDetails("JPM", "789GHI", &db.CustomerBankAccountDetails{Name: "Milan", Balance: 1500.0}); err != nil {
 		log.Fatal(err)
 	}
 	if err := db.WriteCustomerBankAccountDetails("JPM", "321KLM", &db.CustomerBankAccountDetails{Name: "Sandeep", Balance: 2000.0}); err != nil {
+		log.Fatal(err)
+	}
+	if err := db.WriteCustomerBankAccountDetails("JPM", "JPM-POOL-ID", &db.CustomerBankAccountDetails{Name: "JPM-POOL-ACC", Balance: 1e7}); err != nil {
 		log.Fatal(err)
 	}
 

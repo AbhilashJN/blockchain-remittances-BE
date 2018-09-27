@@ -156,6 +156,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/boltdb/bolt",
+    "github.com/davecgh/go-spew/spew",
     "github.com/stellar/go/build",
     "github.com/stellar/go/clients/horizon",
     "github.com/stellar/go/keypair",

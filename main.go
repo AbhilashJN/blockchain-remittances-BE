@@ -8,6 +8,7 @@ import (
 	"github.com/AbhilashJN/blockchain-remittances-BE/account"
 	"github.com/AbhilashJN/blockchain-remittances-BE/bank"
 	"github.com/AbhilashJN/blockchain-remittances-BE/db"
+	"github.com/AbhilashJN/blockchain-remittances-BE/receive"
 	"github.com/AbhilashJN/blockchain-remittances-BE/transaction"
 	"github.com/stellar/go/build"
 	"github.com/stellar/go/clients/horizon"
@@ -172,11 +173,12 @@ func getRecipient() (keypair.KP, string) {
 	return recipientKP, recipientSeed
 }
 
-func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount string) error {
+func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount string, memo string) error {
 	paymentTx, err := build.Transaction(
-		build.SourceAccount{AddressOrSeed: A.Address()},
 		build.TestNetwork,
+		build.SourceAccount{AddressOrSeed: A.Address()},
 		build.AutoSequence{SequenceProvider: horizon.DefaultTestNetClient},
+		build.MemoText{Value: memo},
 		build.Payment(
 			build.Destination{AddressOrSeed: B.Address()},
 			build.CreditAmount{Code: asset.Code, Issuer: asset.Issuer, Amount: amount},
@@ -185,18 +187,22 @@ func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount 
 	if err != nil {
 		return err
 	}
+
 	paymentTxe, err := paymentTx.Sign(Aseed)
 	if err != nil {
 		return err
 	}
+
 	paymentTxeB64, err := paymentTxe.Base64()
 	if err != nil {
 		return err
 	}
+
 	_, err = horizon.DefaultTestNetClient.SubmitTransaction(paymentTxeB64)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -209,7 +215,7 @@ func createAndSendCustomTokenFromAtoB(issuerKP, recipientKP keypair.KP, issuerSe
 
 	trustAsset(recipientKP, recipientSeed, customAsset)
 
-	sendAssetFromAtoB(issuerKP, recipientKP, issuerSeed, customAsset, assetAmout)
+	// sendAssetFromAtoB(issuerKP, recipientKP, issuerSeed, customAsset, assetAmout)
 
 	fmt.Println("_____________________________________after shit_______________________________________")
 	account.PrintAccountDetails(issuerKP.Address())
@@ -218,20 +224,20 @@ func createAndSendCustomTokenFromAtoB(issuerKP, recipientKP keypair.KP, issuerSe
 }
 
 // GetSIDkeyPairsOfBank returns
-func GetSIDkeyPairsOfBank(stellarAddressesOfBank *db.StellarAddressesOfBank) bank.SIDKeyPairs {
-	SourceKeyPair, err := getKeyPair(stellarAddressesOfBank.SourceSeed)
+func GetSIDkeyPairsOfBank(stellarSeedsOfBank *db.StellarSeedsOfBank) (*bank.SIDKeyPairs, error) {
+	SourceKeyPair, err := getKeyPair(stellarSeedsOfBank.SourceSeed)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	IssuerKeyPair, err := getKeyPair(stellarAddressesOfBank.IssuerSeed)
+	IssuerKeyPair, err := getKeyPair(stellarSeedsOfBank.IssuerSeed)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	DistributorKeyPair, err := getKeyPair(stellarAddressesOfBank.DistributorSeed)
+	DistributorKeyPair, err := getKeyPair(stellarSeedsOfBank.DistributorSeed)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return bank.SIDKeyPairs{Source: SourceKeyPair, Issuer: IssuerKeyPair, Distributor: DistributorKeyPair}
+	return &bank.SIDKeyPairs{Source: SourceKeyPair, Issuer: IssuerKeyPair, Distributor: DistributorKeyPair}, nil
 }
 
 // PrintBalencesOfSIDaccounts returns
@@ -247,8 +253,8 @@ func PrintBalencesOfSIDaccounts(stellarAdressesOfBank bank.SIDKeyPairs) {
 	fmt.Println("DISTRIBUTION ACCOUNT END------------------------------------------------\n-")
 }
 
-var bankName = flag.String("b", "SBI", "enter bank name")
-var portNum = flag.String("p", "8080", "enter port number")
+var bankNameFlag = flag.String("b", "JPM", "enter bank name")
+var portNumFlag = flag.String("p", "8080", "enter port number")
 
 func main() {
 	flag.Parse()
@@ -299,7 +305,6 @@ func main() {
 	// 	log.Fatal(err)
 	// }
 
-	// bank.IssueToDistribAccount(stellarSeedsOfJPM.DistributorSeed, stellarSeedsOfJPM.IssuerSeed, "JPMT", "100")
 	// bank.IssueToDistribAccount(stellarSeedsOfSBI.DistributorSeed, stellarSeedsOfSBI.IssuerSeed, "SBIT", "100")
 	// var messages = make(chan string, 4)
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfSBI)
@@ -311,5 +316,24 @@ func main() {
 	// println(<-messages)
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfSBI)
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfJPM)
+
+	senderBankStellarSeeds, err := db.ReadStellarSeedsOfBank(*bankNameFlag)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	senderBankStellarAddressKP, err := GetSIDkeyPairsOfBank(senderBankStellarSeeds)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = bank.IssueToDistribAccount(senderBankStellarSeeds.DistributorSeed, senderBankStellarSeeds.IssuerSeed, *bankNameFlag+"T", "100")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("server for %q,\nAccount Address: %q \n", *bankNameFlag, senderBankStellarAddressKP.Distributor.Address())
+
+	go receive.ListenForPayments(*bankNameFlag, senderBankStellarAddressKP.Distributor.Address(), senderBankStellarAddressKP.Issuer.Address())
 	StartServer()
 }

@@ -60,43 +60,56 @@ func getReceiverInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func sendPayment(w http.ResponseWriter, r *http.Request) {
+	senderBankStellarSeeds, err := db.ReadStellarSeedsOfBank(*bankNameFlag)
+	if err != nil {
+		fmt.Fprintf(w, "ReadStellarSeedsOfBank failed: %v", err)
+		return
+	}
+
+	senderBankStellarAddressKP, err := GetSIDkeyPairsOfBank(senderBankStellarSeeds)
+	if err != nil {
+		fmt.Fprintf(w, "GetSIDkeyPairsOfBank failed: %v", err)
+		return
+	}
+
 	if r.Method == "POST" {
 		if err := r.ParseForm(); err != nil {
 			fmt.Fprintf(w, "ParseForm() err: %v", err)
 			return
 		}
+		senderName := r.FormValue("senderName")
+		senderBankAccountID := r.FormValue("senderBankAccountID")
+		// receiverName := r.FormValue("receiverName") // Not required
+		receiverBank := r.FormValue("receiverBankName")
+		receiverBankAccountID := r.FormValue("receiverBankAccountID")
 
-		senderInfo, err := db.ReadCustomerDetailsFromCommonCustomersDB(r.FormValue("senderPhone"))
+		receiverBankStellarSeeds, err := db.ReadStellarSeedsOfBank(receiverBank)
 		if err != nil {
-			fmt.Fprintf(w, "reading failed: %v", err)
+			fmt.Fprintf(w, "ReadStellarSeedsOfBank failed: %v", err)
 			return
 		}
 
-		senderBankStellarSeeds, err := db.ReadStellarAddressesOfBank(senderInfo.BankName)
+		receiverBankStellarAddressKP, err := GetSIDkeyPairsOfBank(receiverBankStellarSeeds)
 		if err != nil {
-			fmt.Fprintf(w, "error: %v", err)
-			return
-		}
-		senderBankStellarAddressKP := GetSIDkeyPairsOfBank(senderBankStellarSeeds)
-
-		receiverInfo, err := db.ReadCustomerDetailsFromCommonCustomersDB(r.FormValue("receiverPhone"))
-		if err != nil {
-			fmt.Fprintf(w, "reading failed: %v", err)
+			fmt.Fprintf(w, "GetSIDkeyPairsOfBank failederror: %v", err)
 			return
 		}
 
-		receiverBankStellarSeeds, err := db.ReadStellarAddressesOfBank(receiverInfo.BankName)
-		if err != nil {
-			fmt.Fprintf(w, "error: %v", err)
+		if err := sendAssetFromAtoB(senderBankStellarAddressKP.Distributor,
+			receiverBankStellarAddressKP.Distributor,
+			senderBankStellarSeeds.DistributorSeed,
+			buildAsset(senderBankStellarAddressKP.Issuer, *bankNameFlag+"T"),
+			r.FormValue("Amount"),
+			fmt.Sprintf("%s;%s;%s", receiverBankAccountID, senderBankAccountID, senderName)); err != nil {
+			fmt.Fprintf(w, "error in send payment transaction: %v", err)
 			return
 		}
 
-		receiverBankStellarAddressKP := GetSIDkeyPairsOfBank(receiverBankStellarSeeds)
-
-		if err := sendAssetFromAtoB(senderBankStellarAddressKP.Distributor, receiverBankStellarAddressKP.Distributor, senderBankStellarSeeds.DistributorSeed, buildAsset(senderBankStellarAddressKP.Issuer, senderInfo.BankName+"T"), r.FormValue("Amount")); err != nil {
-			fmt.Fprintf(w, "error: %v", err)
-			return
-		}
+		// transactionDetails := &db.TransactionDetails{From: senderAccountID, To: accountIDtoCredit, Amount: amount, TransactionID: transaction.ID}
+		// updatedAccountDetails, err := db.UpdateCustomerBankAccountBalence(*bankNameFlag, transactionDetails, "credit")
+		// if err != nil {
+		// 	return err
+		// }
 
 		fmt.Fprintf(w, "success")
 	}
@@ -108,5 +121,5 @@ func StartServer() {
 	http.HandleFunc("/registration", registration)
 	http.HandleFunc("/getReceiverInfo", getReceiverInfo)
 	http.HandleFunc("/sendPayment", sendPayment)
-	http.ListenAndServe(fmt.Sprintf("localhost:%s", *portNum), nil)
+	http.ListenAndServe(fmt.Sprintf("localhost:%s", *portNumFlag), nil)
 }

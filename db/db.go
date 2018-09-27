@@ -8,27 +8,28 @@ import (
 	"github.com/boltdb/bolt"
 )
 
-// StellarAddressesOfBank is
+// StellarSeedsOfBank is
 
 type data interface {
 	String()
 }
 
-//StellarAddressesOfBank implements data, contains
-type StellarAddressesOfBank struct {
+//StellarSeedsOfBank implements data, contains
+type StellarSeedsOfBank struct {
 	SourceSeed, IssuerSeed, DistributorSeed string
 }
 
 //TransactionDetails contains
 type TransactionDetails struct {
-	From, To, Amount, TransactionID string
+	From, To, TransactionID string
+	Amount                  float64
 }
 
 //CustomerBankAccountDetails implements data, contains
 type CustomerBankAccountDetails struct {
 	Name         string
 	Balance      float64
-	Transactions []TransactionDetails
+	Transactions []*TransactionDetails
 }
 
 //CustomerDetails implements data, contains
@@ -36,7 +37,7 @@ type CustomerDetails struct {
 	CustomerName, BankName, BankAccountID string
 }
 
-func (sab *StellarAddressesOfBank) String() {
+func (sab *StellarSeedsOfBank) String() {
 	fmt.Printf("%+v \n", sab)
 }
 
@@ -59,48 +60,69 @@ func decodeByteSlice(dBdata []byte, target data) (data, error) {
 }
 
 // UpdateCustomerBankAccountBalence returns
-func UpdateCustomerBankAccountBalence(bankName, customerBankAccountID string, newBalance float64) error {
+func UpdateCustomerBankAccountBalence(bankName string, transactionDetails *TransactionDetails, updateType string) (*CustomerBankAccountDetails, error) {
 	// Open the database.
 	db, err := bolt.Open(bankName+".db", 0666, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer db.Close()
 	bucketName := "AccountDetails"
 
+	var updatedRecord *CustomerBankAccountDetails
 	// Execute several commands within a read-write transaction.
 	if err := db.Update(
 		func(tx *bolt.Tx) error {
 			bucket := tx.Bucket([]byte(bucketName))
-			key := []byte(customerBankAccountID)
+			customerAccountID := []byte(transactionDetails.To)
+			// bankPoolAccountID := []byte(transactionDetails.To)
 
-			dataVal, err := decodeByteSlice(bucket.Get(key), &CustomerBankAccountDetails{})
+			accDetOfCustomer, err := decodeByteSlice(bucket.Get(customerAccountID), &CustomerBankAccountDetails{})
 			if err != nil {
 				return err
 			}
-			accountDetails, ok := dataVal.(*CustomerBankAccountDetails)
+
+			// accDetOfBankPool, err := decodeByteSlice(bucket.Get(bankPoolAccountID), &CustomerBankAccountDetails{})
+			// if err != nil {
+			// 	return err
+			// }
+
+			customerAccountDetails, ok := accDetOfCustomer.(*CustomerBankAccountDetails)
 			if !ok {
 				return errors.New("Could not update Customer Bank Account Details : Type assertion failed")
 			}
+			// bankPoolaccountDetails, ok := accDetOfBankPool.(*CustomerBankAccountDetails)
+			// if !ok {
+			// 	return errors.New("Could not update Customer Bank Account Details : Type assertion failed")
+			// }
 
-			accountDetails.Balance = newBalance
+			switch updateType {
+			case "credit":
+				customerAccountDetails.Balance += transactionDetails.Amount
+			case "debit":
+				customerAccountDetails.Balance -= transactionDetails.Amount
+			default:
+				return errors.New("invalid updateType param passed. should be 'credit' or 'debit'")
+			}
 
-			encoded, err := json.Marshal(accountDetails)
+			encoded, err := json.Marshal(customerAccountDetails)
 			if err != nil {
 				return err
 			}
 
-			if err := bucket.Put(key, encoded); err != nil {
+			if err := bucket.Put(customerAccountID, encoded); err != nil {
 				return err
 			}
+
+			updatedRecord = customerAccountDetails // copy in another var to return the updated record to the caller
 
 			return nil
 		},
 	); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return updatedRecord, nil
 }
 
 // WriteCustomerBankAccountDetails returns
@@ -207,9 +229,9 @@ func CreateDBForBank(bankName string) error {
 	return nil
 }
 
-// CreateStellarAddressesOfBankDB returns
-func CreateStellarAddressesOfBankDB() error {
-	db, err := bolt.Open("BankStellarAddresses.db", 0600, nil)
+// CreateBankStellarSeedsDB returns
+func CreateBankStellarSeedsDB() error {
+	db, err := bolt.Open("BankStellarSeeds.db", 0600, nil)
 	if err != nil {
 		return err
 	}
@@ -217,7 +239,7 @@ func CreateStellarAddressesOfBankDB() error {
 
 	if err := db.Update(
 		func(tx *bolt.Tx) error {
-			_, err := tx.CreateBucketIfNotExists([]byte("StellarAddresses"))
+			_, err := tx.CreateBucketIfNotExists([]byte("StellarSeeds"))
 			if err != nil {
 				return err
 			}
@@ -231,9 +253,9 @@ func CreateStellarAddressesOfBankDB() error {
 	return nil
 }
 
-// WriteStellarAddressesForBank returns
-func WriteStellarAddressesForBank(bankName string, addresses *StellarAddressesOfBank) error {
-	db, err := bolt.Open("BankStellarAddresses.db", 0600, nil)
+// WriteStellarSeedsForBank returns
+func WriteStellarSeedsForBank(bankName string, addresses *StellarSeedsOfBank) error {
+	db, err := bolt.Open("BankStellarSeeds.db", 0600, nil)
 	if err != nil {
 		return err
 	}
@@ -241,7 +263,7 @@ func WriteStellarAddressesForBank(bankName string, addresses *StellarAddressesOf
 
 	if err := db.Update(
 		func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte("StellarAddresses"))
+			b := tx.Bucket([]byte("StellarSeeds"))
 			key := []byte(bankName)
 
 			encoded, err := json.Marshal(addresses)
@@ -263,9 +285,9 @@ func WriteStellarAddressesForBank(bankName string, addresses *StellarAddressesOf
 	return nil
 }
 
-// ReadStellarAddressesOfBank returns
-func ReadStellarAddressesOfBank(bankName string) (*StellarAddressesOfBank, error) {
-	db, err := bolt.Open("BankStellarAddresses.db", 0600, nil)
+// ReadStellarSeedsOfBank returns
+func ReadStellarSeedsOfBank(bankName string) (*StellarSeedsOfBank, error) {
+	db, err := bolt.Open("BankStellarSeeds.db", 0600, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -274,10 +296,10 @@ func ReadStellarAddressesOfBank(bankName string) (*StellarAddressesOfBank, error
 	var dataVal data
 	if err := db.View(
 		func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte("StellarAddresses"))
+			b := tx.Bucket([]byte("StellarSeeds"))
 			key := []byte(bankName)
 
-			dataVal, err = decodeByteSlice(b.Get(key), &StellarAddressesOfBank{})
+			dataVal, err = decodeByteSlice(b.Get(key), &StellarSeedsOfBank{})
 			if err != nil {
 				return err
 			}
@@ -288,7 +310,7 @@ func ReadStellarAddressesOfBank(bankName string) (*StellarAddressesOfBank, error
 		return nil, err
 	}
 
-	stellarAddress, ok := dataVal.(*StellarAddressesOfBank)
+	stellarAddress, ok := dataVal.(*StellarSeedsOfBank)
 	if !ok {
 		return nil, errors.New("Could not read Stellar Bank Address : Type assertion failed")
 	}

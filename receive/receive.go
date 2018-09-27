@@ -61,12 +61,12 @@ func handleTransaction(bankName, stellarAddressOfBank string, transaction horizo
 	}
 	// spew.Dump(transaction) //pretty print function
 	fields := strings.Split(transaction.Memo, ";")
-	accountIDtoCredit, senderAccountID := fields[0], fields[1]
+	accountIDtoCredit, senderAccountID, senderName := fields[0], fields[1], fields[2]
 	amount := float64(tx.Tx.Operations[0].Body.PaymentOp.Amount) / 1e7
 
 	transactionDetails := &db.TransactionDetails{From: senderAccountID, To: accountIDtoCredit, Amount: amount, TransactionID: transaction.ID}
 
-	fmt.Printf("Transaction Details: %+v \n", transactionDetails)
+	fmt.Printf("Transaction Details: %+v Sender name: %q \n", *transactionDetails, senderName)
 	if err = db.UpdateCustomerBankAccountBalence(bankName, transactionDetails, "credit"); err != nil {
 		log.Println(err)
 		return err

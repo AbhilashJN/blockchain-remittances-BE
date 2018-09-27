@@ -34,8 +34,11 @@ func registration(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "registration failed: %v", err)
 			return
 		}
+		fmt.Println("asd")
+		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
-		fmt.Fprintf(w, "Registration successful: %s => %+v", r.FormValue("PhoneNumber"), cd)
+		json.NewEncoder(w).Encode(*cd)
+
 	}
 }
 

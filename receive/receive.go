@@ -14,21 +14,22 @@ import (
 )
 
 // ListenForPayments returns
-func ListenForPayments(bankName, stellarAddressOfBank string) {
+func ListenForPayments(bankName, distributorStellarAddressOfBank, issuerStellarAddressOfBank string) {
 	ctx := context.Background()
 
 	cursor := horizon.Cursor("now")
 
 	fmt.Println("Waiting for a payment...")
 
-	err := horizon.DefaultTestNetClient.StreamTransactions(ctx, stellarAddressOfBank, &cursor, func(transaction horizon.Transaction) {
-		if err := handleTransaction(bankName, stellarAddressOfBank, transaction); err != nil {
+	err := horizon.DefaultTestNetClient.StreamTransactions(ctx, distributorStellarAddressOfBank, &cursor, func(transaction horizon.Transaction) {
+		if err := handleTransaction(bankName, distributorStellarAddressOfBank, issuerStellarAddressOfBank, transaction); err != nil {
 			log.Println(err)
 		}
 
 	})
 
 	if err != nil {
+		fmt.Printf("shit happened")
 		panic(err)
 	}
 
@@ -50,8 +51,13 @@ func decodeTransactionEnvelope(data string) (xdr.TransactionEnvelope, error) {
 	return tx, nil
 }
 
-func handleTransaction(bankName, stellarAddressOfBank string, transaction horizon.Transaction) error {
-	if stellarAddressOfBank == transaction.Account {
+func handleTransaction(bankName, distributorStellarAddressOfBank, issuerStellarAddressOfBank string, transaction horizon.Transaction) error {
+	if distributorStellarAddressOfBank == transaction.Account {
+		return nil
+	}
+
+	if issuerStellarAddressOfBank == transaction.Account {
+		fmt.Println("transaction from issuer account")
 		return nil
 	}
 

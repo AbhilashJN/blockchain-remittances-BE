@@ -327,13 +327,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// err = bank.IssueToDistribAccount(senderBankStellarSeeds.DistributorSeed, senderBankStellarSeeds.IssuerSeed, *bankNameFlag+"T", "100")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	err = bank.IssueToDistribAccount(senderBankStellarSeeds.DistributorSeed, senderBankStellarSeeds.IssuerSeed, *bankNameFlag+"T", "100")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	fmt.Printf("server for %q,\nAccount Address: %q \n", *bankNameFlag, senderBankStellarAddressKP.Distributor.Address())
 
-	go receive.ListenForPayments(*bankNameFlag, senderBankStellarAddressKP.Distributor.Address())
+	go receive.ListenForPayments(*bankNameFlag, senderBankStellarAddressKP.Distributor.Address(), senderBankStellarAddressKP.Issuer.Address())
 	StartServer()
 }

@@ -105,6 +105,12 @@ func sendPayment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// transactionDetails := &db.TransactionDetails{From: senderAccountID, To: accountIDtoCredit, Amount: amount, TransactionID: transaction.ID}
+		// updatedAccountDetails, err := db.UpdateCustomerBankAccountBalence(*bankNameFlag, transactionDetails, "credit")
+		// if err != nil {
+		// 	return err
+		// }
+
 		fmt.Fprintf(w, "success")
 	}
 }

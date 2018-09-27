@@ -3,6 +3,7 @@ package receive
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -56,21 +57,33 @@ func handleTransaction(bankName, stellarAddressOfBank string, transaction horizo
 
 	tx, err := decodeTransactionEnvelope(transaction.EnvelopeXdr)
 	if err != nil {
-		log.Println(err)
 		return err
 	}
 	// spew.Dump(transaction) //pretty print function
 	fields := strings.Split(transaction.Memo, ";")
 	accountIDtoCredit, senderAccountID, senderName := fields[0], fields[1], fields[2]
-	amount := float64(tx.Tx.Operations[0].Body.PaymentOp.Amount) / 1e7
+	operation := tx.Tx.Operations[0].Body.PaymentOp
+	amount := float64(operation.Amount) / 1e7 // TODO: Verify the validity of this conversion
+	assetInfo, ok := operation.Asset.GetAlphaNum4()
+	if !ok {
+		return errors.New("GetAlphaNum4() failed: Could not extract alpha4 asset from the envelope operation")
+	}
 
 	transactionDetails := &db.TransactionDetails{From: senderAccountID, To: accountIDtoCredit, Amount: amount, TransactionID: transaction.ID}
+	fmt.Printf("Received a transaction from stellar network..\n")
+	fmt.Printf("Asset code: %q\n", assetInfo.AssetCode)
+	fmt.Printf("Amount: %f\n", transactionDetails.Amount)
+	fmt.Printf("From bank account: %q, name: %q \n", transactionDetails.From, senderName)
+	fmt.Printf("To bank account: %q\n", transactionDetails.To)
 
-	fmt.Printf("Transaction Details: %+v Sender name: %q \n", *transactionDetails, senderName)
-	if err = db.UpdateCustomerBankAccountBalence(bankName, transactionDetails, "credit"); err != nil {
-		log.Println(err)
+	updatedAccountDetails, err := db.UpdateCustomerBankAccountBalence(bankName, transactionDetails, "credit")
+	if err != nil {
 		return err
 	}
+	// spew.Dump(updatedAccountDetails)
+	fmt.Printf("Receiver customer bank account details after succesful transaction\n")
+	fmt.Printf("Account holder name: %q\n", updatedAccountDetails.Name)
+	fmt.Printf("Account holder balance: %f\n", updatedAccountDetails.Balance)
 
 	return nil
 }

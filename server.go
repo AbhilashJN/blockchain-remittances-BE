@@ -79,7 +79,7 @@ func sendPayment(w http.ResponseWriter, r *http.Request) {
 		}
 		senderName := r.FormValue("senderName")
 		senderBankAccountID := r.FormValue("senderBankAccountID")
-		// receiverName := r.FormValue("receiverName")
+		// receiverName := r.FormValue("receiverName") // Not required
 		receiverBank := r.FormValue("receiverBankName")
 		receiverBankAccountID := r.FormValue("receiverBankAccountID")
 

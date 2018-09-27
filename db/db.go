@@ -60,15 +60,16 @@ func decodeByteSlice(dBdata []byte, target data) (data, error) {
 }
 
 // UpdateCustomerBankAccountBalence returns
-func UpdateCustomerBankAccountBalence(bankName string, transactionDetails *TransactionDetails, updateType string) error {
+func UpdateCustomerBankAccountBalence(bankName string, transactionDetails *TransactionDetails, updateType string) (*CustomerBankAccountDetails, error) {
 	// Open the database.
 	db, err := bolt.Open(bankName+".db", 0666, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer db.Close()
 	bucketName := "AccountDetails"
 
+	var updatedRecord *CustomerBankAccountDetails
 	// Execute several commands within a read-write transaction.
 	if err := db.Update(
 		func(tx *bolt.Tx) error {
@@ -103,13 +104,15 @@ func UpdateCustomerBankAccountBalence(bankName string, transactionDetails *Trans
 				return err
 			}
 
+			updatedRecord = accountDetails // copy in another var to return the updated record to the caller
+
 			return nil
 		},
 	); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return updatedRecord, nil
 }
 
 // WriteCustomerBankAccountDetails returns

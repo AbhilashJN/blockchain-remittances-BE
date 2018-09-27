@@ -74,14 +74,13 @@ func sendPayment(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "ParseForm() err: %v", err)
 			return
 		}
+		senderName := r.FormValue("senderName")
+		senderBankAccountID := r.FormValue("senderBankAccountID")
+		// receiverName := r.FormValue("receiverName")
+		receiverBank := r.FormValue("receiverBankName")
+		receiverBankAccountID := r.FormValue("receiverBankAccountID")
 
-		receiverInfo, err := db.ReadCustomerDetailsFromCommonCustomersDB(r.FormValue("receiverPhone"))
-		if err != nil {
-			fmt.Fprintf(w, "ReadCustomerDetailsFromCommonCustomersDB failed: %v", err)
-			return
-		}
-
-		receiverBankStellarSeeds, err := db.ReadStellarSeedsOfBank(receiverInfo.BankName)
+		receiverBankStellarSeeds, err := db.ReadStellarSeedsOfBank(receiverBank)
 		if err != nil {
 			fmt.Fprintf(w, "ReadStellarSeedsOfBank failed: %v", err)
 			return
@@ -97,7 +96,8 @@ func sendPayment(w http.ResponseWriter, r *http.Request) {
 			receiverBankStellarAddressKP.Distributor,
 			senderBankStellarSeeds.DistributorSeed,
 			buildAsset(senderBankStellarAddressKP.Issuer, *bankNameFlag+"T"),
-			r.FormValue("Amount")); err != nil {
+			r.FormValue("Amount"),
+			fmt.Sprintf("%s;%s;%s", receiverBankAccountID, senderBankAccountID, senderName)); err != nil {
 			fmt.Fprintf(w, "error: %v", err)
 			return
 		}

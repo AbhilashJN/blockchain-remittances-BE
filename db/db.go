@@ -21,14 +21,15 @@ type StellarSeedsOfBank struct {
 
 //TransactionDetails contains
 type TransactionDetails struct {
-	From, To, Amount, TransactionID string
+	From, To, TransactionID string
+	Amount                  float64
 }
 
 //CustomerBankAccountDetails implements data, contains
 type CustomerBankAccountDetails struct {
 	Name         string
 	Balance      float64
-	Transactions []TransactionDetails
+	Transactions []*TransactionDetails
 }
 
 //CustomerDetails implements data, contains
@@ -59,7 +60,7 @@ func decodeByteSlice(dBdata []byte, target data) (data, error) {
 }
 
 // UpdateCustomerBankAccountBalence returns
-func UpdateCustomerBankAccountBalence(bankName, customerBankAccountID string, newBalance float64) error {
+func UpdateCustomerBankAccountBalence(bankName string, transactionDetails *TransactionDetails, updateType string) error {
 	// Open the database.
 	db, err := bolt.Open(bankName+".db", 0666, nil)
 	if err != nil {
@@ -72,18 +73,26 @@ func UpdateCustomerBankAccountBalence(bankName, customerBankAccountID string, ne
 	if err := db.Update(
 		func(tx *bolt.Tx) error {
 			bucket := tx.Bucket([]byte(bucketName))
-			key := []byte(customerBankAccountID)
+			key := []byte(transactionDetails.To)
 
 			dataVal, err := decodeByteSlice(bucket.Get(key), &CustomerBankAccountDetails{})
 			if err != nil {
 				return err
 			}
+
 			accountDetails, ok := dataVal.(*CustomerBankAccountDetails)
 			if !ok {
 				return errors.New("Could not update Customer Bank Account Details : Type assertion failed")
 			}
 
-			accountDetails.Balance = newBalance
+			switch updateType {
+			case "credit":
+				accountDetails.Balance += transactionDetails.Amount
+			case "debit":
+				accountDetails.Balance -= transactionDetails.Amount
+			default:
+				return errors.New("invalid updateType param passed. should be 'credit' or 'debit'")
+			}
 
 			encoded, err := json.Marshal(accountDetails)
 			if err != nil {

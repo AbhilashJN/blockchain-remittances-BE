@@ -173,32 +173,36 @@ func getRecipient() (keypair.KP, string) {
 	return recipientKP, recipientSeed
 }
 
-func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount string) error {
+func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount string, memo string) error {
 	paymentTx, err := build.Transaction(
-		build.SourceAccount{AddressOrSeed: A.Address()},
 		build.TestNetwork,
+		build.SourceAccount{AddressOrSeed: A.Address()},
 		build.AutoSequence{SequenceProvider: horizon.DefaultTestNetClient},
+		build.MemoText{Value: memo},
 		build.Payment(
 			build.Destination{AddressOrSeed: B.Address()},
 			build.CreditAmount{Code: asset.Code, Issuer: asset.Issuer, Amount: amount},
 		),
-		// build.MemoText{Value: memo},
 	)
 	if err != nil {
 		return err
 	}
+
 	paymentTxe, err := paymentTx.Sign(Aseed)
 	if err != nil {
 		return err
 	}
+
 	paymentTxeB64, err := paymentTxe.Base64()
 	if err != nil {
 		return err
 	}
+
 	_, err = horizon.DefaultTestNetClient.SubmitTransaction(paymentTxeB64)
 	if err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -312,7 +316,6 @@ func main() {
 	// println(<-messages)
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfSBI)
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfJPM)
-	fmt.Printf("server for %q \n", *bankNameFlag)
 
 	senderBankStellarSeeds, err := db.ReadStellarSeedsOfBank(*bankNameFlag)
 	if err != nil {
@@ -324,11 +327,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	err = bank.IssueToDistribAccount(senderBankStellarSeeds.DistributorSeed, senderBankStellarSeeds.IssuerSeed, *bankNameFlag+"T", "100")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// err = bank.IssueToDistribAccount(senderBankStellarSeeds.DistributorSeed, senderBankStellarSeeds.IssuerSeed, *bankNameFlag+"T", "100")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	go receive.ListenForPayments(senderBankStellarAddressKP.Distributor.Address())
+	fmt.Printf("server for %q,\nAccount Address: %q \n", *bankNameFlag, senderBankStellarAddressKP.Distributor.Address())
+
+	go receive.ListenForPayments(*bankNameFlag, senderBankStellarAddressKP.Distributor.Address())
 	StartServer()
 }

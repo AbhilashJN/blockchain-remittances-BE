@@ -101,7 +101,7 @@ func sendPayment(w http.ResponseWriter, r *http.Request) {
 			buildAsset(senderBankStellarAddressKP.Issuer, *bankNameFlag+"T"),
 			r.FormValue("Amount"),
 			fmt.Sprintf("%s;%s;%s", receiverBankAccountID, senderBankAccountID, senderName)); err != nil {
-			fmt.Fprintf(w, "error: %v", err)
+			fmt.Fprintf(w, "error in send payment transaction: %v", err)
 			return
 		}
 

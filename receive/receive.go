@@ -63,7 +63,7 @@ func handleTransaction(bankName, stellarAddressOfBank string, transaction horizo
 	fields := strings.Split(transaction.Memo, ";")
 	accountIDtoCredit, senderAccountID, senderName := fields[0], fields[1], fields[2]
 	operation := tx.Tx.Operations[0].Body.PaymentOp
-	amount := float64(operation.Amount) / 1e7 // TODO: Verify the validity of this conversion
+	amount := float64(operation.Amount) / 1e7 // TODO: Verify the validity of this
 	assetInfo, ok := operation.Asset.GetAlphaNum4()
 	if !ok {
 		return errors.New("GetAlphaNum4() failed: Could not extract alpha4 asset from the envelope operation")

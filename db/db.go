@@ -74,37 +74,47 @@ func UpdateCustomerBankAccountBalence(bankName string, transactionDetails *Trans
 	if err := db.Update(
 		func(tx *bolt.Tx) error {
 			bucket := tx.Bucket([]byte(bucketName))
-			key := []byte(transactionDetails.To)
+			customerAccountID := []byte(transactionDetails.To)
+			// bankPoolAccountID := []byte(transactionDetails.To)
 
-			dataVal, err := decodeByteSlice(bucket.Get(key), &CustomerBankAccountDetails{})
+			accDetOfCustomer, err := decodeByteSlice(bucket.Get(customerAccountID), &CustomerBankAccountDetails{})
 			if err != nil {
 				return err
 			}
 
-			accountDetails, ok := dataVal.(*CustomerBankAccountDetails)
+			// accDetOfBankPool, err := decodeByteSlice(bucket.Get(bankPoolAccountID), &CustomerBankAccountDetails{})
+			// if err != nil {
+			// 	return err
+			// }
+
+			customerAccountDetails, ok := accDetOfCustomer.(*CustomerBankAccountDetails)
 			if !ok {
 				return errors.New("Could not update Customer Bank Account Details : Type assertion failed")
 			}
+			// bankPoolaccountDetails, ok := accDetOfBankPool.(*CustomerBankAccountDetails)
+			// if !ok {
+			// 	return errors.New("Could not update Customer Bank Account Details : Type assertion failed")
+			// }
 
 			switch updateType {
 			case "credit":
-				accountDetails.Balance += transactionDetails.Amount
+				customerAccountDetails.Balance += transactionDetails.Amount
 			case "debit":
-				accountDetails.Balance -= transactionDetails.Amount
+				customerAccountDetails.Balance -= transactionDetails.Amount
 			default:
 				return errors.New("invalid updateType param passed. should be 'credit' or 'debit'")
 			}
 
-			encoded, err := json.Marshal(accountDetails)
+			encoded, err := json.Marshal(customerAccountDetails)
 			if err != nil {
 				return err
 			}
 
-			if err := bucket.Put(key, encoded); err != nil {
+			if err := bucket.Put(customerAccountID, encoded); err != nil {
 				return err
 			}
 
-			updatedRecord = accountDetails // copy in another var to return the updated record to the caller
+			updatedRecord = customerAccountDetails // copy in another var to return the updated record to the caller
 
 			return nil
 		},

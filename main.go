@@ -208,19 +208,19 @@ func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount 
 
 func createAndSendCustomTokenFromAtoB(issuerKP, recipientKP keypair.KP, issuerSeed, recipientSeed string, customAsset build.Asset, assetAmout string) {
 
-	fmt.Println("_____________________________________before shit_____________________________________")
+	fmt.Println("_____________________________________before_____________________________________")
 	account.PrintAccountDetails(issuerKP.Address())
 	account.PrintAccountDetails(recipientKP.Address())
-	fmt.Println("_____________________________________before shit_____________________________________")
+	fmt.Println("_____________________________________before_____________________________________")
 
 	trustAsset(recipientKP, recipientSeed, customAsset)
 
 	// sendAssetFromAtoB(issuerKP, recipientKP, issuerSeed, customAsset, assetAmout)
 
-	fmt.Println("_____________________________________after shit_______________________________________")
+	fmt.Println("_____________________________________after_______________________________________")
 	account.PrintAccountDetails(issuerKP.Address())
 	account.PrintAccountDetails(recipientKP.Address())
-	fmt.Println("_____________________________________after shit_______________________________________")
+	fmt.Println("_____________________________________after_______________________________________")
 }
 
 // GetSIDkeyPairsOfBank returns

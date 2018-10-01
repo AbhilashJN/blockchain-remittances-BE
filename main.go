@@ -1,15 +1,19 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
+	"os"
+
+	"github.com/AbhilashJN/blockchain-remittances-BE/data"
+	"github.com/AbhilashJN/blockchain-remittances-BE/setup"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/account"
 	"github.com/AbhilashJN/blockchain-remittances-BE/bank"
 	"github.com/AbhilashJN/blockchain-remittances-BE/db"
 	"github.com/AbhilashJN/blockchain-remittances-BE/receive"
 	"github.com/AbhilashJN/blockchain-remittances-BE/transaction"
+	"github.com/AbhilashJN/blockchain-remittances-BE/utils"
 	"github.com/stellar/go/build"
 	"github.com/stellar/go/clients/horizon"
 	"github.com/stellar/go/keypair"
@@ -140,8 +144,8 @@ func trustAsset(recipientKP keypair.KP, recipientSeed string, asset build.Asset)
 	}
 }
 
-func buildAsset(issuerKP keypair.KP, assetCode string) build.Asset {
-	asset := build.CreditAsset(assetCode, issuerKP.Address())
+func buildAsset(issuerAddress, assetCode string) build.Asset {
+	asset := build.CreditAsset(assetCode, issuerAddress)
 	return asset
 }
 
@@ -155,14 +159,6 @@ func getIssuer() (keypair.KP, string) {
 	return issuerKP, issuerSeed
 }
 
-func getKeyPair(seed string) (keypair.KP, error) {
-	accKeyPair, err := keypair.Parse(seed)
-	if err != nil {
-		return nil, err
-	}
-	return accKeyPair, nil
-}
-
 func getRecipient() (keypair.KP, string) {
 	personB := account.GetCreatedAccounts().PersonB
 	recipientSeed := personB.Seed
@@ -173,14 +169,14 @@ func getRecipient() (keypair.KP, string) {
 	return recipientKP, recipientSeed
 }
 
-func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount string, memo string) (*horizon.TransactionSuccess, error) {
+func sendPaymentTransaction(amount, senderStellarAddress, receiverStellarAddress, senderStellarSeed, memo string, asset build.Asset) (*horizon.TransactionSuccess, error) {
 	paymentTx, err := build.Transaction(
 		build.TestNetwork,
-		build.SourceAccount{AddressOrSeed: A.Address()},
+		build.SourceAccount{AddressOrSeed: senderStellarAddress},
 		build.AutoSequence{SequenceProvider: horizon.DefaultTestNetClient},
 		build.MemoText{Value: memo},
 		build.Payment(
-			build.Destination{AddressOrSeed: B.Address()},
+			build.Destination{AddressOrSeed: receiverStellarAddress},
 			build.CreditAmount{Code: asset.Code, Issuer: asset.Issuer, Amount: amount},
 		),
 	)
@@ -188,7 +184,7 @@ func sendAssetFromAtoB(A, B keypair.KP, Aseed string, asset build.Asset, amount 
 		return nil, err
 	}
 
-	paymentTxe, err := paymentTx.Sign(Aseed)
+	paymentTxe, err := paymentTx.Sign(senderStellarSeed)
 	if err != nil {
 		return nil, err
 	}
@@ -223,41 +219,21 @@ func createAndSendCustomTokenFromAtoB(issuerKP, recipientKP keypair.KP, issuerSe
 	fmt.Println("_____________________________________after_______________________________________")
 }
 
-// GetSIDkeyPairsOfBank returns
-func GetSIDkeyPairsOfBank(stellarSeedsOfBank *db.StellarSeedsOfBank) (*bank.SIDKeyPairs, error) {
-	SourceKeyPair, err := getKeyPair(stellarSeedsOfBank.SourceSeed)
-	if err != nil {
-		return nil, err
-	}
-	IssuerKeyPair, err := getKeyPair(stellarSeedsOfBank.IssuerSeed)
-	if err != nil {
-		return nil, err
-	}
-	DistributorKeyPair, err := getKeyPair(stellarSeedsOfBank.DistributorSeed)
-	if err != nil {
-		return nil, err
-	}
-	return &bank.SIDKeyPairs{Source: SourceKeyPair, Issuer: IssuerKeyPair, Distributor: DistributorKeyPair}, nil
-}
-
 // PrintBalencesOfSIDaccounts returns
-func PrintBalencesOfSIDaccounts(stellarAdressesOfBank bank.SIDKeyPairs) {
+func PrintBalencesOfSIDaccounts(stellarAdresses *data.StellarAddresses) {
 	fmt.Println("SOURCE ACCOUNT START------------------------------------------------\n-")
-	account.PrintAccountDetails(stellarAdressesOfBank.Source.Address())
+	account.PrintAccountDetails(stellarAdresses.Source)
 	fmt.Println("SOURCE ACCOUNT END------------------------------------------------\n-")
 	fmt.Println("ISSUER ACCOUNT START:------------------------------------------------\n-")
-	account.PrintAccountDetails(stellarAdressesOfBank.Issuer.Address())
+	account.PrintAccountDetails(stellarAdresses.Issuer)
 	fmt.Println("ISSUER ACCOUNT END------------------------------------------------\n-")
 	fmt.Println("DISTRIBUTION ACCOUNT START:------------------------------------------------\n-")
-	account.PrintAccountDetails(stellarAdressesOfBank.Distributor.Address())
+	account.PrintAccountDetails(stellarAdresses.Distributor)
 	fmt.Println("DISTRIBUTION ACCOUNT END------------------------------------------------\n-")
 }
 
-var bankNameFlag = flag.String("b", "JPM", "enter bank name")
-var portNumFlag = flag.String("p", "8080", "enter port number")
-
 func main() {
-	flag.Parse()
+	// flag.Parse()
 	// lumenTransaction()
 	// customAssetTransaction()
 	// issuerKP, issuerSeed := getIssuer()
@@ -278,19 +254,39 @@ func main() {
 	// }
 	// fmt.Printf("%+v \n", *stellarSeedsOfJPM)
 
-	// stellarSeedsOfSBI, err := db.ReadStellarAddressesOfBank("SBI")
+	// stellarSeedsOfSBI, err := db.ReadStellarSeedsOfBank("SBI")
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
 	// // fmt.Printf("%+v \n", stellarSeedsOfSBI)
 
-	// stellarSeedsOfJPM, err := db.ReadStellarAddressesOfBank("JPM")
+	// stellarSeedsOfJPM, err := db.ReadStellarSeedsOfBank("JPM")
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
 	// fmt.Printf("%+v \n", stellarSeedsOfJPM)
-	// stellarAddressesOfSBI := GetSIDkeyPairsOfBank(stellarSeedsOfSBI)
-	// stellarAddressesOfJPM := GetSIDkeyPairsOfBank(stellarSeedsOfJPM)
+	// stellarAddressesOfSBI, err := GetStellarAddressesOfBank(&db.StellarSeeds{
+	// 	SourceSeed:      "SBNSSMFUYGUIPXMOEKSAGD524THQKE6S5NUEGZVZ3LNB422G427DNAIL",
+	// 	IssuerSeed:      "SBZK7WTUPFIY55HRRW4SYH2KFZVMLH7STS2PTQHOW4RAF7UWRB74BGKM",
+	// 	DistributorSeed: "SDP3446MMEKWDSUKJ65GASOBNL6L42UVBPAXKKGOMCSVARB3WMLHJVQY",
+	// })
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// stellarAddressesOfJPM, err := GetStellarAddressesOfBank(&db.StellarSeeds{
+	// 	SourceSeed:      "SB7SZBJ5BUYWQGQZ3TVSTDN7FY7F6ERPFI22TBJRDBYHOKUDRVLG4KFW",
+	// 	IssuerSeed:      "SBJW3HMQG4AUCFO63YGNCBJRQAODMGOOQBLQT74TBSUYHYPDU56WZB3V",
+	// 	DistributorSeed: "SDZ2T2L4LT76MIPUIA5LJLYGPDSF4CWIWVID5U32H6N62N5OEZ2VSTBX",
+	// })
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+	// fmt.Printf("stellarAddressesOfSBI.Source.Address: %q\n", stellarAddressesOfSBI.Source.Address())
+	// fmt.Printf("stellarAddressesOfSBI.Issuer.Address: %q\n", stellarAddressesOfSBI.Issuer.Address())
+	// fmt.Printf("stellarAddressesOfSBI.Distributor.Address: %q\n", stellarAddressesOfSBI.Distributor.Address())
+	// fmt.Printf("stellarAddressesOfJPM.Source.Address: %q\n", stellarAddressesOfJPM.Source.Address())
+	// fmt.Printf("stellarAddressesOfJPM.Issuer.Address: %q\n", stellarAddressesOfJPM.Issuer.Address())
+	// fmt.Printf("stellarAddressesOfJPM.Distributor.Address: %q\n", stellarAddressesOfJPM.Distributor.Address())
 
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfSBI)
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfJPM)
@@ -316,24 +312,43 @@ func main() {
 	// println(<-messages)
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfSBI)
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfJPM)
+	bankName, ok := os.LookupEnv("BANK")
+	if !ok {
+		log.Fatal(utils.EnvVarNotFoundError("BANK"))
+	}
 
-	senderBankStellarSeeds, err := db.ReadStellarSeedsOfBank(*bankNameFlag)
+	port, ok := os.LookupEnv("PORT")
+	if !ok {
+		log.Fatal(utils.EnvVarNotFoundError("PORT"))
+	}
+
+	stellarSeeds, err := db.ReadStellarSeedsOfBank(bankName)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	senderBankStellarAddressKP, err := GetSIDkeyPairsOfBank(senderBankStellarSeeds)
+	stellarAddresses, err := utils.GetStellarAddressesOfBank(stellarSeeds)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// err = bank.IssueToDistribAccount(senderBankStellarSeeds.DistributorSeed, senderBankStellarSeeds.IssuerSeed, *bankNameFlag+"T", "100")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+	bank := &bank.Bank{Name: bankName, StellarSeeds: stellarSeeds, StellarAddresses: stellarAddresses}
 
-	fmt.Printf("server for %q,\nAccount Address: %q \n", *bankNameFlag, senderBankStellarAddressKP.Distributor.Address())
+	// os.Setenv("StellarIssuerSeed", stellarSeeds.Issuer)
+	// os.Setenv("StellarDistributorSeed", stellarSeeds.Distributor)
+	// os.Setenv("StellarSourceSeed", stellarSeeds.Source)
 
-	go receive.ListenForPayments(*bankNameFlag, senderBankStellarAddressKP.Distributor.Address(), senderBankStellarAddressKP.Issuer.Address())
-	StartServer()
+	// os.Setenv("StellarIssuerAddress", stellarAddresses.Issuer)
+	// os.Setenv("StellarDistributorAddress", stellarAddresses.Distributor)
+	// os.Setenv("StellarSourceAddress", stellarAddresses.Source)
+
+	err = setup.IssueToDistribAccount(bank.StellarSeeds.Issuer, bank.StellarAddresses.Issuer, bank.StellarAddresses.Distributor, bankName+"T", "100")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Server for %q,\nAccount Address: %q \n", bank.Name, bank.StellarAddresses.Distributor)
+
+	go receive.ListenForPayments(bank)
+	StartServer(port, bank)
 }

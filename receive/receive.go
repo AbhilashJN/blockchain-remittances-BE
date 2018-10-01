@@ -7,25 +7,29 @@ import (
 	"log"
 	"strings"
 
-	"github.com/AbhilashJN/blockchain-remittances-BE/db"
+	"github.com/AbhilashJN/blockchain-remittances-BE/bank"
+
+	"github.com/AbhilashJN/blockchain-remittances-BE/data"
+
 	"github.com/AbhilashJN/blockchain-remittances-BE/utils"
 	"github.com/stellar/go/clients/horizon"
 )
 
 // ListenForPayments returns
-func ListenForPayments(bankName, distributorStellarAddressOfBank, issuerStellarAddressOfBank string) {
+func ListenForPayments(bank *bank.Bank) {
 	ctx := context.Background()
 
 	cursor := horizon.Cursor("now")
 
 	fmt.Println("Waiting for a payment...")
 
-	err := horizon.DefaultTestNetClient.StreamTransactions(ctx, distributorStellarAddressOfBank, &cursor, func(transaction horizon.Transaction) {
-		if err := handleTransaction(bankName, distributorStellarAddressOfBank, issuerStellarAddressOfBank, transaction); err != nil {
-			log.Printf("In callback of StreamTransactions: %s", err.Error())
-		}
-
-	})
+	err := horizon.DefaultTestNetClient.StreamTransactions(ctx, bank.StellarAddresses.Distributor, &cursor,
+		func(transaction horizon.Transaction) {
+			if err := handleTransaction(bank, transaction); err != nil {
+				log.Printf("In callback of StreamTransactions: %s", err.Error())
+			}
+		},
+	)
 
 	if err != nil {
 		fmt.Printf("shit happened")
@@ -34,12 +38,12 @@ func ListenForPayments(bankName, distributorStellarAddressOfBank, issuerStellarA
 
 }
 
-func handleTransaction(bankName, distributorStellarAddressOfBank, issuerStellarAddressOfBank string, transaction horizon.Transaction) error {
-	if distributorStellarAddressOfBank == transaction.Account {
+func handleTransaction(bank *bank.Bank, transaction horizon.Transaction) error {
+	if bank.StellarAddresses.Distributor == transaction.Account {
 		return nil
 	}
 
-	if issuerStellarAddressOfBank == transaction.Account {
+	if bank.StellarAddresses.Issuer == transaction.Account {
 		fmt.Println("transaction from issuer account")
 		return nil
 	}
@@ -60,35 +64,16 @@ func handleTransaction(bankName, distributorStellarAddressOfBank, issuerStellarA
 		return errors.New("GetAlphaNum4() failed: Could not extract alpha4 asset from the envelope operation")
 	}
 
-	transactionDetails := &db.TransactionDetails{TransactionType: "credit", From: senderAccountID, Amount: amount, TransactionID: transaction.ID}
+	transactionDetails := &data.TransactionDetails{TransactionType: "credit", From: senderAccountID, Amount: amount, TransactionID: transaction.ID}
 
 	fmt.Printf("Asset code: %q\n", assetInfo.AssetCode)
 	fmt.Printf("Amount: %f\n", transactionDetails.Amount)
 	fmt.Printf("From bank account: %q, name: %q \n", transactionDetails.From, senderName)
 	fmt.Printf("Bank account to credit: %q\n", customerAccountIDtoCredit)
-
-	updatedCustomerAccountInfo, updatedBankPoolAccountInfo, err := db.UpdateCustomerBankAccountBalence(transactionDetails, bankName, customerAccountIDtoCredit)
+	updatedCustomerAccountInfo, updatedBankPoolAccountInfo, err := bank.UpdateCustomerBankAccountBalence(transactionDetails, customerAccountIDtoCredit)
 	if err != nil {
 		return err
 	}
-	// spew.Dump(updatedAccountDetails)
-	fmt.Println("\n\nReceiver customer bank account details after succesful transaction")
-	fmt.Printf("Account holder name: %q\n", updatedCustomerAccountInfo.Name)
-	fmt.Printf("Account holder balance: %f\n", updatedCustomerAccountInfo.Balance)
-	fmt.Println("--------------------------------------------Transaction history----------------------------------------------")
-	for _, tx := range updatedCustomerAccountInfo.Transactions {
-		fmt.Printf("TransactionID: %q\nTransactionType: %q\nFrom: %q\nAmount: %f\n", tx.TransactionID, tx.TransactionType, tx.From, tx.Amount)
-		fmt.Println("------------------------------------------------------------------------------------------")
-	}
-	fmt.Println("--------------------------------------------Transaction history----------------------------------------------")
-
-	fmt.Println("\n\nBank pool account detils")
-	// fmt.Printf("updatedBankPoolAccountInfo : %T\n\n", updatedBankPoolAccountInfo)
-	fmt.Printf("Balance: %f\n", updatedBankPoolAccountInfo.Balance)
-	fmt.Println("--------------------------------------------Transaction history----------------------------------------------")
-	for _, tx := range updatedBankPoolAccountInfo.Transactions {
-		fmt.Printf("TransactionID: %q\nTransactionType: %q\nTo: %q\n, Amount: %f\n", tx.TransactionID, tx.TransactionType, tx.To, tx.Amount)
-	}
-	fmt.Println("--------------------------------------------Transaction history----------------------------------------------")
+	utils.LogAccountDetails(updatedCustomerAccountInfo, updatedBankPoolAccountInfo)
 	return nil
 }

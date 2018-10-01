@@ -10,7 +10,7 @@ import (
 
 func main() {
 
-	for _, dbname := range []string{"SBI.db", "JPM.db", "BankStellarSeeds.db", "CommonCustomers.db"} {
+	for _, dbname := range []string{"SBI.db", "JPM.db", "CustomerPool.db"} {
 		err := os.Remove(dbname)
 		if err == nil {
 			continue
@@ -25,11 +25,7 @@ func main() {
 		}
 	}
 
-	if err := db.CreateBankStellarSeedsDB(); err != nil {
-		log.Fatal(err)
-	}
-
-	if err := db.CreateCommonCustomersDB(); err != nil {
+	if err := db.CreateCustomerPoolDB(); err != nil {
 		log.Fatal(err)
 	}
 }

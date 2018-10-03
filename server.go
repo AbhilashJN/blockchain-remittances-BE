@@ -1,14 +1,18 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/bank"
 	"github.com/AbhilashJN/blockchain-remittances-BE/utils"
+	"github.com/stellar/go/clients/horizon"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/data"
 
@@ -21,43 +25,67 @@ func pong(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func registration(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		if err := r.ParseForm(); err != nil {
-			fmt.Fprintf(w, "ParseForm() err: %v", err)
-			return
-		}
+// ListenForPayments returns
+func ListenForPayments(bankConfig BankConfig) {
+	ctx := context.Background()
 
-		err := db.WriteCustomerDetailsToCustomerPoolDB(r.FormValue("PhoneNumber"), &data.CustomerDetails{
-			CustomerName:  r.FormValue("CustomerName"),
-			BankName:      r.FormValue("BankName"),
-			BankAccountID: r.FormValue("BankAccountID"),
-		})
-		if err != nil {
-			fmt.Fprintf(w, "registration failed: %v", err)
-			return
-		}
+	cursor := horizon.Cursor("now")
 
-		customerDetails, err := db.ReadCustomerDetailsFromCustomerPoolDB(r.FormValue("PhoneNumber"))
-		if err != nil {
-			fmt.Fprintf(w, "registration failed: %v", err)
-			return
-		}
-		err = db.WriteCustomerBankAccountDetails(customerDetails.BankName, customerDetails.BankAccountID, &data.CustomerBankAccountDetails{Name: customerDetails.CustomerName, Balance: 1000.0})
-		if err != nil {
-			fmt.Fprintf(w, "registration failed: %v", err)
-			return
-		}
+	fmt.Println("Waiting for a payment...")
 
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
-		jsEncoder := json.NewEncoder(w)
-		err = jsEncoder.Encode(customerDetails)
-		if err != nil {
-			fmt.Fprintf(w, "jsEncoder.Encode(customerDetails) failed:\n error %v", err)
-			return
-		}
+	err := horizon.DefaultTestNetClient.StreamTransactions(ctx, bank.StellarAddresses.Distributor, &cursor,
+		func(transaction horizon.Transaction) {
+			if err := handleTransaction(bank, transaction); err != nil {
+				log.Printf("In callback of StreamTransactions: %s", err.Error())
+			}
+		},
+	)
+
+	if err != nil {
+		fmt.Printf("shit happened")
+		panic(err)
 	}
+
+}
+
+func handleTransaction(bank *bank.Bank, transaction horizon.Transaction) error {
+	if bank.StellarAddresses.Distributor == transaction.Account {
+		return nil
+	}
+
+	if bank.StellarAddresses.Issuer == transaction.Account {
+		fmt.Println("transaction from issuer account")
+		return nil
+	}
+
+	fmt.Println("\n\nReceived a transaction from stellar network..")
+
+	txe, err := utils.DecodeTransactionEnvelope(transaction.EnvelopeXdr)
+	if err != nil {
+		return err
+	}
+	// spew.Dump(transaction) //pretty print function
+	fields := strings.Split(transaction.Memo, ";")
+	customerAccountIDtoCredit, senderAccountID, senderName := fields[0], fields[1], fields[2]
+	operation := txe.Tx.Operations[0].Body.PaymentOp
+	amount := float64(operation.Amount) / 1e7 // TODO: Verify the validity of this
+	assetInfo, ok := operation.Asset.GetAlphaNum4()
+	if !ok {
+		return errors.New("GetAlphaNum4() failed: Could not extract alpha4 asset from the envelope operation")
+	}
+
+	transactionDetails := &data.TransactionDetails{TransactionType: "credit", From: senderAccountID, Amount: amount, TransactionID: transaction.ID}
+
+	fmt.Printf("Asset code: %q\n", assetInfo.AssetCode)
+	fmt.Printf("Amount: %f\n", transactionDetails.Amount)
+	fmt.Printf("From bank account: %q, name: %q \n", transactionDetails.From, senderName)
+	fmt.Printf("Bank account to credit: %q\n", customerAccountIDtoCredit)
+	updatedCustomerAccountInfo, updatedBankPoolAccountInfo, err := bank.UpdateCustomerBankAccountBalence(transactionDetails, customerAccountIDtoCredit)
+	if err != nil {
+		return err
+	}
+	utils.LogAccountDetails(updatedCustomerAccountInfo, updatedBankPoolAccountInfo)
+	return nil
 }
 
 func getReceiverInfo(w http.ResponseWriter, r *http.Request) {
@@ -128,7 +156,7 @@ func sendPayment(w http.ResponseWriter, r *http.Request, bank *bank.Bank) {
 	}
 }
 
-func getTransactionDetails(w http.ResponseWriter, r *http.Request, bank *bank.Bank) {
+func getCustomerAccountDetails(w http.ResponseWriter, r *http.Request, bank *bank.Bank) {
 	if r.Method == "GET" {
 		if err := r.ParseForm(); err != nil {
 			fmt.Fprintf(w, "ParseForm() err: %v", err)
@@ -158,14 +186,13 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, *bank.Bank), bank *
 }
 
 //StartServer starts the server
-func StartServer(port string, bank *bank.Bank) {
+func StartServer(bankConfig BankConfig) {
 	http.HandleFunc("/ping", pong)
-	http.HandleFunc("/registration", registration)
 	http.HandleFunc("/getReceiverInfo", getReceiverInfo)
-	http.HandleFunc("/sendPayment", makeHandler(sendPayment, bank))
-	http.HandleFunc("/getTransactionDetails", makeHandler(getTransactionDetails, bank))
+	http.HandleFunc("/sendPayment", makeHandler(sendPayment, bankConfig))
+	http.HandleFunc("/getCustomerAccountDetails", makeHandler(getCustomerAccountDetails, bankConfig))
 	fmt.Println("\n\nserver is starting...")
-	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", port), nil)
+	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", bankConfig.Port), nil)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -25,6 +25,10 @@ func main() {
 		}
 	}
 
+	if err := db.CreateCentralDB(); err != nil {
+		log.Fatal(err)
+	}
+
 	if err := db.CreateCustomerPoolDB(); err != nil {
 		log.Fatal(err)
 	}

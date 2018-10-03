@@ -1,19 +1,16 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/data"
-	"github.com/AbhilashJN/blockchain-remittances-BE/setup"
+	"github.com/AbhilashJN/blockchain-remittances-BE/receive"
+	"github.com/spf13/viper"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/account"
-	"github.com/AbhilashJN/blockchain-remittances-BE/bank"
-	"github.com/AbhilashJN/blockchain-remittances-BE/db"
-	"github.com/AbhilashJN/blockchain-remittances-BE/receive"
 	"github.com/AbhilashJN/blockchain-remittances-BE/transaction"
-	"github.com/AbhilashJN/blockchain-remittances-BE/utils"
 	"github.com/stellar/go/build"
 	"github.com/stellar/go/clients/horizon"
 	"github.com/stellar/go/keypair"
@@ -232,6 +229,43 @@ func PrintBalencesOfSIDaccounts(stellarAdresses *data.StellarAddresses) {
 	fmt.Println("DISTRIBUTION ACCOUNT END------------------------------------------------\n-")
 }
 
+var filePath = flag.String("configFile", "./SBIconfig.yml", "config filepath")
+
+type Keys struct {
+	Source, Issuer, Distributor string
+}
+
+type BankConfig struct {
+	Name             string
+	Port             string
+	StellarSeeds     Keys
+	StellarAddresses Keys
+}
+
+var bankConfig BankConfig
+
+func readConfig(configFilePath string) {
+	viper.SetConfigFile(configFilePath)
+
+	// Searches for config file in given paths and read it
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalf("Error reading config file, %s", err)
+	}
+
+	// Confirm which config file is used
+	fmt.Printf("Using config: %s\n", viper.ConfigFileUsed())
+
+	if err := viper.Unmarshal(&bankConfig); err != nil {
+		log.Fatalf("unable to decode into struct, %v", err)
+	}
+}
+
+func init() {
+	flag.Parse()
+	readConfig(*filePath)
+	// spew.Dump(bankConfig)
+}
+
 func main() {
 	// flag.Parse()
 	// lumenTransaction()
@@ -312,27 +346,22 @@ func main() {
 	// println(<-messages)
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfSBI)
 	// PrintBalencesOfSIDaccounts(stellarAddressesOfJPM)
-	bankName, ok := os.LookupEnv("BANK")
-	if !ok {
-		log.Fatal(utils.EnvVarNotFoundError("BANK"))
-	}
 
-	port, ok := os.LookupEnv("PORT")
-	if !ok {
-		log.Fatal(utils.EnvVarNotFoundError("PORT"))
-	}
+	// stellarSeeds, err := db.ReadStellarSeedsOfBank("JPM")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	stellarSeeds, err := db.ReadStellarSeedsOfBank(bankName)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// spew.Dump(stellarSeeds)
 
-	stellarAddresses, err := utils.GetStellarAddressesOfBank(stellarSeeds)
-	if err != nil {
-		log.Fatal(err)
-	}
+	// stellarAddresses, err := utils.GetStellarAddressesOfBank(stellarSeeds)
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	bank := &bank.Bank{Name: bankName, StellarSeeds: stellarSeeds, StellarAddresses: stellarAddresses}
+	// spew.Dump(stellarAddresses)
+
+	// bank := &bank.Bank{Name: bankName, StellarSeeds: stellarSeeds, StellarAddresses: stellarAddresses}
 
 	// os.Setenv("StellarIssuerSeed", stellarSeeds.Issuer)
 	// os.Setenv("StellarDistributorSeed", stellarSeeds.Distributor)
@@ -342,13 +371,13 @@ func main() {
 	// os.Setenv("StellarDistributorAddress", stellarAddresses.Distributor)
 	// os.Setenv("StellarSourceAddress", stellarAddresses.Source)
 
-	err = setup.IssueToDistribAccount(bank.StellarSeeds.Issuer, bank.StellarAddresses.Issuer, bank.StellarAddresses.Distributor, bankName+"T", "100")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// err = setup.IssueToDistribAccount(bank.StellarSeeds.Issuer, bank.StellarAddresses.Issuer, bank.StellarAddresses.Distributor, bankName+"T", "100")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 
-	fmt.Printf("Server for %q,\nAccount Address: %q \n", bank.Name, bank.StellarAddresses.Distributor)
+	// fmt.Printf("Server for %q,\nAccount Address: %q \n", bank.Name, bank.StellarAddresses.Distributor)
 
-	go receive.ListenForPayments(bank)
-	StartServer(port, bank)
+	go receive.ListenForPayments(bankConfig)
+	StartServer(bankConfig)
 }

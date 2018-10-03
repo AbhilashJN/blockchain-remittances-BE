@@ -1,0 +1,15 @@
+banks:
+- bankName: "SBI"
+  database:
+    host: "localhost"
+    port: 5432
+    user: "sbiadmin"
+    password: "sbiadmin339"
+    dbName: "sbi"
+- bankName: "JP MORGAN"
+  database:
+    host: "localhost"
+    port: 5432
+    user: "jpmadmin"
+    password: "jpmadmin339"
+    dbName: "jpm"

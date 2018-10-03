@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/gob"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/data"
@@ -56,8 +57,8 @@ func logTransactionHistory(transactionHistory []data.TransactionDetails) {
 }
 
 // EnvVarNotFoundError returns
-func EnvVarNotFoundError(got string) error {
-	return fmt.Errorf("environment variable %q not found", got)
+func EnvVarNotFoundError(got string) {
+	log.Fatal(fmt.Errorf("environment variable %q not found", got))
 }
 
 // GetStellarAddressesOfBank returns
@@ -85,6 +86,7 @@ func getKeyPair(seed string) (keypair.KP, error) {
 	return accKeyPair, nil
 }
 
+// GobEncode returns
 func GobEncode(structValue interface{}) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	enc := gob.NewEncoder(buf)
@@ -95,6 +97,7 @@ func GobEncode(structValue interface{}) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// GobDecode returns
 func GobDecode(data []byte, target data.Data) (data.Data, error) {
 	// fmt.Printf("In gobDecode: %s", data)
 	buf := bytes.NewBuffer(data)

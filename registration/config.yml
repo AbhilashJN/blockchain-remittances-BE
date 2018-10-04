@@ -1,9 +1,9 @@
-database:
-  host: "localhost"
-  port: 5432
-  user: "blkremadmin"
-  password: "blkremadmin339"
-  dbName: "blockchain_remittances"
+Database:
+  Host: "localhost"
+  Port: 5432
+  User: "blkremadmin"
+  Password: "blkremadmin339"
+  DbName: "blockchain_remittances"
 
-server:
+AppServer:
   port: 8080

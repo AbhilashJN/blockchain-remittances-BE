@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,14 +13,10 @@ import (
 	"github.com/jinzhu/gorm"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/models"
+	"github.com/AbhilashJN/blockchain-remittances-BE/transaction"
 
-	"github.com/AbhilashJN/blockchain-remittances-BE/bank"
 	"github.com/AbhilashJN/blockchain-remittances-BE/utils"
 	"github.com/stellar/go/clients/horizon"
-
-	"github.com/AbhilashJN/blockchain-remittances-BE/data"
-
-	"github.com/AbhilashJN/blockchain-remittances-BE/db"
 )
 
 func pong(w http.ResponseWriter, r *http.Request) {
@@ -29,29 +26,29 @@ func pong(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListenForPayments returns
-// func ListenForPayments(bankConfig BankConfig) {
-// 	ctx := context.Background()
+func ListenForPayments(bank BankConfig) {
+	ctx := context.Background()
 
-// 	cursor := horizon.Cursor("now")
+	cursor := horizon.Cursor("now")
 
-// 	fmt.Println("Waiting for a payment...")
+	fmt.Println("Waiting for a payment...")
 
-// 	err := horizon.DefaultTestNetClient.StreamTransactions(ctx, bank.StellarAddresses.Distributor, &cursor,
-// 		func(transaction horizon.Transaction) {
-// 			if err := handleTransaction(bank, transaction); err != nil {
-// 				log.Printf("In callback of StreamTransactions: %s", err.Error())
-// 			}
-// 		},
-// 	)
+	err := horizon.DefaultTestNetClient.StreamTransactions(ctx, bank.StellarAddresses.Distributor, &cursor,
+		func(transaction horizon.Transaction) {
+			if err := receivePayment(bank, transaction); err != nil {
+				log.Printf("In callback of StreamTransactions: %s", err.Error())
+			}
+		},
+	)
 
-// 	if err != nil {
-// 		fmt.Printf("shit happened")
-// 		panic(err)
-// 	}
+	if err != nil {
+		fmt.Printf("shit happened")
+		panic(err)
+	}
 
-// }
+}
 
-func handleTransaction(bank *bank.Bank, transaction horizon.Transaction) error {
+func receivePayment(bank BankConfig, transaction horizon.Transaction) error {
 	if bank.StellarAddresses.Distributor == transaction.Account {
 		return nil
 	}
@@ -69,7 +66,7 @@ func handleTransaction(bank *bank.Bank, transaction horizon.Transaction) error {
 	}
 	// spew.Dump(transaction) //pretty print function
 	fields := strings.Split(transaction.Memo, ";")
-	customerAccountIDtoCredit, senderAccountID, senderName := fields[0], fields[1], fields[2]
+	receiverAccountID, senderAccountID, senderName := fields[0], fields[1], fields[2]
 	operation := txe.Tx.Operations[0].Body.PaymentOp
 	amount := float64(operation.Amount) / 1e7 // TODO: Verify the validity of this
 	assetInfo, ok := operation.Asset.GetAlphaNum4()
@@ -77,47 +74,39 @@ func handleTransaction(bank *bank.Bank, transaction horizon.Transaction) error {
 		return errors.New("GetAlphaNum4() failed: Could not extract alpha4 asset from the envelope operation")
 	}
 
-	transactionDetails := &data.TransactionDetails{TransactionType: "credit", From: senderAccountID, Amount: amount, TransactionID: transaction.ID}
-
 	fmt.Printf("Asset code: %q\n", assetInfo.AssetCode)
-	fmt.Printf("Amount: %f\n", transactionDetails.Amount)
-	fmt.Printf("From bank account: %q, name: %q \n", transactionDetails.From, senderName)
-	fmt.Printf("Bank account to credit: %q\n", customerAccountIDtoCredit)
-	updatedCustomerAccountInfo, updatedBankPoolAccountInfo, err := bank.UpdateCustomerBankAccountBalence(transactionDetails, customerAccountIDtoCredit)
-	if err != nil {
+	fmt.Printf("Amount: %f\n", amount)
+	fmt.Printf("From bank account: %q, name: %q \n", senderAccountID, senderName)
+	fmt.Printf("Bank account to credit: %q\n", receiverAccountID)
+
+	receiverTransactionDetails := models.Transaction{AccountID: receiverAccountID, TransactionType: "credit", From: senderAccountID, Amount: amount, ID: transaction.ID}
+	bankPoolTransactionDetails := models.Transaction{AccountID: bank.BankPoolAccID, TransactionType: "debit", To: receiverAccountID, Amount: amount, ID: fmt.Sprintf("POOLTORCVR:%s", receiverAccountID)}
+	var receiverAccount models.Account
+	var bankPoolAccount models.Account
+
+	if err := bank.DB.Where("ID = ?", receiverAccountID).First(&receiverAccount).Error; err != nil {
 		return err
 	}
-	utils.LogAccountDetails(updatedCustomerAccountInfo, updatedBankPoolAccountInfo)
+	if err := bank.DB.Where("ID = ?", bank.BankPoolAccID).First(&bankPoolAccount).Error; err != nil {
+		return err
+	}
+	if err := bank.DB.Find(&receiverAccount).Update("Balance", receiverAccount.Balance+amount).Error; err != nil {
+		return err
+	}
+	if err := bank.DB.Find(&bankPoolAccount).Update("Balance", bankPoolAccount.Balance-amount).Error; err != nil {
+		return err
+	}
+	if err := bank.DB.Create(&receiverTransactionDetails).Error; err != nil {
+		return err
+	}
+	if err := bank.DB.Create(&bankPoolTransactionDetails).Error; err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func getReceiverInfo(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		if err := r.ParseForm(); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "ParseForm() err\n: %v", err)
-			return
-		}
-		receiverCustomerBankAccountDetails, err := db.ReadCustomerDetailsFromCustomerPoolDB(r.FormValue("PhoneNumber"))
-		if err != nil {
-			fmt.Fprintf(w, "reading failed: %v", err)
-			return
-		}
-
-		fmt.Printf("%+v\n", receiverCustomerBankAccountDetails)
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		jsEncoder := json.NewEncoder(w)
-		err = jsEncoder.Encode(receiverCustomerBankAccountDetails)
-		if err != nil {
-			fmt.Fprintf(w, "jsEncoder.Encode(receiverCustomerBankAccountDetails) failed:\n errorL %v", err)
-			return
-		}
-	}
-}
-
-func sendPayment(w http.ResponseWriter, r *http.Request, bank *bank.Bank) {
+func sendPayment(w http.ResponseWriter, r *http.Request, bank BankConfig) {
 
 	if r.Method == "POST" {
 		if err := r.ParseForm(); err != nil {
@@ -125,54 +114,102 @@ func sendPayment(w http.ResponseWriter, r *http.Request, bank *bank.Bank) {
 			fmt.Fprintf(w, "ParseForm() err: %v", err)
 			return
 		}
-		senderName := r.FormValue("senderName")
-		senderBankAccountID := r.FormValue("senderBankAccountID")
-		receiverBankAccountID := r.FormValue("receiverBankAccountID")
-		receiverBankStellarDistributorAddress := r.FormValue("receiverBankStellarDistributorAddress")
-		amountToCredit := r.FormValue("Amount")
+
+		amountQueryKey, senderNameQueryKey, senderBankAccIDQueryKey := "Amount", "SenderName", "SenderBankAccountID"
+		receiverBankAccIDQueryKey, receiverBankStellarDistAddressQueryKey := "ReceiverBankAccountID", "ReceiverBankStellarDistributorAddress"
+
+		for _, fieldName := range []string{amountQueryKey, senderNameQueryKey, senderBankAccIDQueryKey, receiverBankAccIDQueryKey, receiverBankStellarDistAddressQueryKey} {
+			_, ok := r.PostForm[fieldName]
+			if !ok {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "%s field not found in the request's body", fieldName)
+				return
+			}
+		}
+
+		senderName, senderBankAccountID := r.PostFormValue(senderNameQueryKey), r.PostFormValue(senderBankAccIDQueryKey)
+		receiverBankAccountID, receiverBankStellarDistributorAddress := r.PostFormValue(receiverBankAccIDQueryKey), r.PostFormValue(receiverBankStellarDistAddressQueryKey)
+		amountToCredit := r.PostFormValue(amountQueryKey)
+
 		amountInFloat, err := strconv.ParseFloat(amountToCredit, 64)
 		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "strconv.ParseFloat(amountToCredit, 64) failed\n: %v", err)
 			return
 		}
 
-		resp, err := sendPaymentTransaction(amountToCredit, bank.StellarAddresses.Distributor, receiverBankStellarDistributorAddress,
+		resp, err := transaction.SendPaymentTransaction(amountToCredit, bank.StellarAddresses.Distributor, receiverBankStellarDistributorAddress,
 			bank.StellarSeeds.Distributor, fmt.Sprintf("%s;%s;%s", receiverBankAccountID, senderBankAccountID, senderName),
-			buildAsset(bank.StellarAddresses.Issuer, bank.Name+"T"))
+			utils.BuildAsset(bank.StellarAddresses.Issuer, bank.StellarAssetCode))
 
 		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, "error in send payment transaction: %v", err)
 			return
 		}
 
 		fmt.Printf("Successful payment transaction by %q on the stellar network\n:", bank.Name)
 
-		transactionDetails := &data.TransactionDetails{TransactionType: "debit", To: receiverBankAccountID, Amount: amountInFloat, TransactionID: resp.Hash}
+		var senderAccTransactionDetails = models.Transaction{AccountID: senderBankAccountID, TransactionType: "debit", To: receiverBankAccountID, Amount: amountInFloat, ID: resp.Hash}
+		var poolAccTransactionDetails = models.Transaction{AccountID: bank.BankPoolAccID, TransactionType: "credit", From: senderBankAccountID, Amount: amountInFloat, ID: fmt.Sprintf("SNDRTOPOOl:%s", senderBankAccountID)}
 
-		updatedCustomerAccountInfo, updatedBankPoolAccountInfo, err := bank.UpdateCustomerBankAccountBalence(transactionDetails, senderBankAccountID)
-		if err != nil {
-			fmt.Fprintf(w, "db.UpdateCustomerBankAccountBalence(transactionDetails, bankName, customerAccountIDtoCredit) failed:\n %v", err.Error())
-			return
+		var senderAccount models.Account
+		var bankPoolAccount models.Account
+
+		if err := bank.DB.Where("ID = ?", senderBankAccountID).First(&senderAccount).Error; err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `bank.DB.Where("ID = ?", senderBankAccountID).First(&senderAccount).Error failed: %v`, err)
 		}
 
-		fmt.Println("\n\nSender customer bank account details after succesful transaction")
-		utils.LogAccountDetails(updatedCustomerAccountInfo, updatedBankPoolAccountInfo)
+		if err := bank.DB.Where("ID = ?", bank.BankPoolAccID).First(&bankPoolAccount).Error; err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `bank.DB.Where("ID = ?", senderBankAccountID).First(&senderAccount).Error failed: %v`, err)
+		}
+
+		if err := bank.DB.Find(&senderAccount).Update("Balance", senderAccount.Balance-amountInFloat).Error; err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `bank.DB.Model(&senderAccount).Update("Balance", senderAccount.Balance-amountInFloat).Error failed: %v`, err)
+		}
+
+		if err := bank.DB.Find(&bankPoolAccount).Update("Balance", bankPoolAccount.Balance+amountInFloat).Error; err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `bank.DB.Model(&senderAccount).Update("Balance", senderAccount.Balance-amountInFloat).Error failed: %v`, err)
+		}
+
+		if err := bank.DB.Create(&senderAccTransactionDetails).Error; err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `bank.DB.Create(&senderTransactionDetails).Error failed: %v`, err)
+		}
+
+		if err := bank.DB.Create(&poolAccTransactionDetails).Error; err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `bank.DB.Create(&senderTransactionDetails).Error failed: %v`, err)
+		}
+
 		fmt.Fprintf(w, "success")
 	}
 }
 
 func getAccountDetails(w http.ResponseWriter, r *http.Request, bank BankConfig) {
 	if r.Method == "GET" {
-		queryParams := r.URL.Query()
-		bankAccountID, ok := queryParams["BankAccountID"]
-		if !ok {
+		if err := r.ParseForm(); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintf(w, "BankAccountID parameter not found in the query string")
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
 			return
 		}
 
+		bankAccountIDQueryKey := "BankAccountID"
+
+		if _, ok := r.Form[bankAccountIDQueryKey]; !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "%s parameter not found in the query string", bankAccountIDQueryKey)
+			return
+		}
+
+		bankAccountID := r.FormValue(bankAccountIDQueryKey)
+
 		var account models.Account
-		if err := bank.DB.Where("ID = ?", bankAccountID).First(&account).Error; err != nil {
+		if err := bank.DB.Where("ID = ?", bankAccountID).Preload("Transactions").First(&account).Error; err != nil {
 			if gorm.IsRecordNotFoundError(err) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "account not found")
@@ -199,13 +236,12 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, BankConfig), bank B
 }
 
 //StartServer starts the server
-func StartServer(bankConfig BankConfig) {
+func StartServer(bank BankConfig) {
 	http.HandleFunc("/ping", pong)
-	http.HandleFunc("/getReceiverInfo", getReceiverInfo)
-	// http.HandleFunc("/sendPayment", makeHandler(sendPayment, bankConfig))
-	http.HandleFunc("/accountDetails", makeHandler(getAccountDetails, bankConfig))
+	http.HandleFunc("/sendPayment", makeHandler(sendPayment, bank))
+	http.HandleFunc("/accountDetails", makeHandler(getAccountDetails, bank))
 	fmt.Println("\n\nserver is starting...")
-	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", bankConfig.Port), nil)
+	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", bank.Port), nil)
 	if err != nil {
 		log.Fatal(err)
 	}

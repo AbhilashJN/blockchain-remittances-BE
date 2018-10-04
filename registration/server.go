@@ -13,27 +13,67 @@ import (
 	"github.com/spf13/viper"
 )
 
+func getUserInfo(w http.ResponseWriter, r *http.Request, db *gorm.DB) {
+	if r.Method == "GET" {
+		if err := r.ParseForm(); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "r.ParseForm() failed: %v", err)
+		}
+
+		phoneNumberQueryKey := "PhoneNumber"
+
+		if _, ok := r.Form[phoneNumberQueryKey]; !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "%s parameter not found in the query string", phoneNumberQueryKey)
+			return
+		}
+
+		phoneNumber := r.FormValue(phoneNumberQueryKey)
+
+		var user models.User
+
+		if err := db.Where("phone_number = ?", phoneNumber).Preload("BankInfo").First(&user).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "No user with %s as phone number found", phoneNumber)
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `db.Where("phone_number = ?", phoneNumber).Preload("BankInfo").First(&user).Error failed: %v`, err)
+			return
+		}
+
+		// fmt.Printf("%+v\n", user)
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(user); err != nil {
+			fmt.Fprintf(w, "json.NewEncoder(w).Encode(user) failed:\n errorL %v", err)
+			return
+		}
+	}
+}
+
 func registerNewUser(w http.ResponseWriter, r *http.Request, db *gorm.DB) {
 
 	if r.Method == "POST" {
 		if err := r.ParseForm(); err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "ParseForm() err: %v", err)
 			return
 		}
 
-		fmt.Printf("%+v\n", r.PostForm)
+		// fmt.Printf("%+v\n", r.PostForm)
+		bankNameQuerykey, bankAccIDQuerykey, phoneNumberQuerykey := "BankName", "BankAccountID", "PhoneNumber"
 
-		for _, fieldName := range []string{"BankName", "BankAccountID", "PhoneNumber"} {
-			_, ok := r.PostForm[fieldName]
-			if !ok {
+		for _, fieldName := range []string{bankNameQuerykey, bankAccIDQuerykey, phoneNumberQuerykey} {
+			if _, ok := r.PostForm[fieldName]; !ok {
 				w.WriteHeader(http.StatusBadRequest)
 				fmt.Fprintf(w, "%s field not found in the request's body", fieldName)
 				return
 			}
 		}
 
-		bankName, bankAccountID, phoneNumber := r.PostFormValue("BankName"), r.PostFormValue("BankAccountID"), r.PostFormValue("PhoneNumber")
+		bankName, bankAccountID, phoneNumber := r.PostFormValue(bankNameQuerykey), r.PostFormValue(bankAccIDQuerykey), r.PostFormValue(phoneNumberQuerykey)
 
 		var bankInfo models.Bank
 		if err := db.Where("Name = ?", bankName).First(&bankInfo).Error; err != nil {
@@ -87,7 +127,7 @@ func registerNewUser(w http.ResponseWriter, r *http.Request, db *gorm.DB) {
 		var userBankInfo models.Bank
 		if err := db.Model(&user).Related(&userBankInfo, "BankInfo").Error; err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, `db.Where("phone_number = ?", phoneNumber).First(&userDet) failed:\n %v`, err)
+			fmt.Fprintf(w, `db.Model(&user).Related(&userBankInfo, "BankInfo").Error failed:\n %v`, err)
 			return
 		}
 
@@ -96,7 +136,7 @@ func registerNewUser(w http.ResponseWriter, r *http.Request, db *gorm.DB) {
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(user); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
-			fmt.Fprintf(w, "json.NewEncoder(w).Encode(userDet) failed:\n %v", err)
+			fmt.Fprintf(w, "json.NewEncoder(w).Encode(user) failed:\n %v", err)
 			return
 		}
 	}
@@ -120,18 +160,18 @@ type DatabaseConfig struct {
 
 // Config is config for the entire app
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
+	AppServer ServerConfig
+	Database  DatabaseConfig
 }
 
 var config Config
 
-var banks = []models.Bank{
-	models.Bank{Name: "SBI", StellarAppURL: "localhost:7070", DistributorAddress: "GC2JUDOWWCREXJPNGCL4IFBF6C6EVFVEHBSJWQT26T6A63TWIIOYQZQH"},
-	models.Bank{Name: "JP MORGAN", StellarAppURL: "localhost:6060", DistributorAddress: "GCG2S7CUX4VWXNW5LL3V7CGD36ZBV6TED43LN4B772M5JQ7Z7I43SEOT"},
+var seedBanks = []models.Bank{
+	models.Bank{Name: "SBI", StellarAppURL: "localhost:7070", DistributorAddress: "GDGDRDMRMW22LM2AAX5NM4TGVN3BOJUEOWAIVHHW2HLG2SQWU37UY73U"},
+	models.Bank{Name: "JP MORGAN", StellarAppURL: "localhost:6060", DistributorAddress: "GDT674D4C5SFIUK7I5XVHOPSR7RC72ODKXQUHGNINVOLFJ32HYAEVQBS"},
 }
 
-var users = []models.User{
+var seedUsers = []models.User{
 	{PhoneNumber: "9976543210", Name: "Sreekar", BankName: "SBI", BankAccountID: "123ABC"},
 	// {PhoneNumber: "9876543210", Name: "Abhilash", BankName: "SBI", BankAccountID: "456DEF"},
 	{PhoneNumber: "8976543210", Name: "Milan", BankName: "JP MORGAN", BankAccountID: "789GHI"},
@@ -139,12 +179,12 @@ var users = []models.User{
 }
 
 func seedTables(db *gorm.DB) {
-	for _, bank := range banks {
+	for _, bank := range seedBanks {
 		if err := db.Create(&bank).Error; err != nil {
 			fmt.Println(err)
 		}
 	}
-	for _, user := range users {
+	for _, user := range seedUsers {
 		if err := db.Create(&user).Error; err != nil {
 			fmt.Println(err)
 		}
@@ -192,9 +232,10 @@ func main() {
 
 	seedTables(db)
 
-	serverAddress := fmt.Sprintf("localhost:%s", config.Server.Port)
+	serverAddress := fmt.Sprintf("localhost:%s", config.AppServer.Port)
 	print(serverAddress)
 	http.HandleFunc("/registerNewUser", makeHandler(registerNewUser, db))
+	http.HandleFunc("/getUserInfo", makeHandler(getUserInfo, db))
 
 	fmt.Println("\n\nRegistartion server is starting...")
 	err = http.ListenAndServe(serverAddress, nil)

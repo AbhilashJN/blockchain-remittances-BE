@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/davecgh/go-spew/spew"
+
 	"github.com/AbhilashJN/blockchain-remittances-BE/models"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/postgres"
@@ -17,8 +19,9 @@ type DatabaseConfig struct {
 
 // BankConfig is a config for a bank
 type BankConfig struct {
-	BankName string
-	Database DatabaseConfig
+	BankName      string
+	Database      DatabaseConfig
+	BankPoolAccID string
 }
 
 // ConfigForAllBanks is config for database
@@ -48,35 +51,41 @@ func readConfig() {
 
 func init() {
 	readConfig()
-	fmt.Printf("%+v\n", configForAllBanks)
+	spew.Dump(configForAllBanks)
 }
 
 var sbiAccounts = []models.Account{
-	{
-		ID: "123ABC", Balance: 500, Name: "Sreekar",
-		Transactions: []models.Transaction{
-			{From: "789GHI", Amount: 5, TransactionType: "credit", ID: "276XFHGSJGC7D6CSDCDBCGSDGV7S8VJDHSF8S8SD7SDDS9DNHGD6556"},
-		},
+	models.Account{
+		ID: "123456789SBIPOOL123456789", Balance: 50000000, Name: "SBI-POOL",
 	},
-	{
+	models.Account{
+		ID: "123ABC", Balance: 500, Name: "Sreekar",
+		// Transactions: []models.Transaction{
+		// 	{From: "789GHI", Amount: 5, TransactionType: "credit", ID: "276XFHGSJGC7D6CSDCDBCGSDGV7S8VJDHSF8S8SD7SDDS9DNHGD6556"},
+		// },
+	},
+	models.Account{
 		ID: "456DEF", Balance: 1000, Name: "Abhilash",
-		Transactions: []models.Transaction{
-			{From: "321KLM", Amount: 15, TransactionType: "credit", ID: "F7SD6F8SF6DS8FDS5SD65F76FSDF6S8F68S6FSD8F6SD8F6786F88"},
-		},
+		// Transactions: []models.Transaction{
+		// 	{From: "321KLM", Amount: 15, TransactionType: "credit", ID: "F7SD6F8SF6DS8FDS5SD65F76FSDF6S8F68S6FSD8F6SD8F6786F88"},
+		// },
 	},
 }
 var jpmAccounts = []models.Account{
-	{
-		ID: "789GHI", Balance: 1500, Name: "Milan",
-		Transactions: []models.Transaction{
-			{To: "123ABC", Amount: 5, TransactionType: "debit", ID: "276XFHGSJGC7D6CSDCDBCGSDGV7S8VJDHSF8S8SD7SDDS9DNHGD6556"},
-		},
+	models.Account{
+		ID: "987654321JPMORGANPOOL987654321", Balance: 70000000, Name: "JPMORGAN-POOL",
 	},
-	{
+	models.Account{
+		ID: "789GHI", Balance: 1500, Name: "Milan",
+		// Transactions: []models.Transaction{
+		// 	{To: "123ABC", Amount: 5, TransactionType: "debit", ID: "276XFHGSJGC7D6CSDCDBCGSDGV7S8VJDHSF8S8SD7SDDS9DNHGD6556"},
+		// },
+	},
+	models.Account{
 		ID: "321KLM", Balance: 2000, Name: "Sandeep",
-		Transactions: []models.Transaction{
-			{To: "456DEF", Amount: 15, TransactionType: "debit", ID: "F7SD6F8SF6DS8FDS5SD65F76FSDF6S8F68S6FSD8F6SD8F6786F88"},
-		},
+		// Transactions: []models.Transaction{
+		// 	{To: "456DEF", Amount: 15, TransactionType: "debit", ID: "F7SD6F8SF6DS8FDS5SD65F76FSDF6S8F68S6FSD8F6SD8F6786F88"},
+		// },
 	},
 }
 

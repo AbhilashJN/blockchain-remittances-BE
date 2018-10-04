@@ -2,3 +2,5 @@ vendor
 *.db
 .DS_Store
 blockchain-remittances-BE
+registration
+setupBankDB

@@ -6,7 +6,8 @@ import (
 	"log"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/data"
-	"github.com/AbhilashJN/blockchain-remittances-BE/receive"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/jinzhu/gorm"
 	"github.com/spf13/viper"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/account"
@@ -235,11 +236,17 @@ type Keys struct {
 	Source, Issuer, Distributor string
 }
 
+type DBconnectionParams struct {
+	Host, Port, User, Password, DbName string
+}
+
 type BankConfig struct {
 	Name             string
 	Port             string
 	StellarSeeds     Keys
 	StellarAddresses Keys
+	DBconnectionParams
+	DB *gorm.DB
 }
 
 var bankConfig BankConfig
@@ -263,7 +270,7 @@ func readConfig(configFilePath string) {
 func init() {
 	flag.Parse()
 	readConfig(*filePath)
-	// spew.Dump(bankConfig)
+	spew.Dump(bankConfig)
 }
 
 func main() {
@@ -378,6 +385,18 @@ func main() {
 
 	// fmt.Printf("Server for %q,\nAccount Address: %q \n", bank.Name, bank.StellarAddresses.Distributor)
 
-	go receive.ListenForPayments(bankConfig)
+	dbConn := bankConfig.DBconnectionParams
+	dbConnParam := fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=disable password=%s", dbConn.Host, dbConn.Port, dbConn.User, dbConn.DbName, dbConn.Password)
+
+	db, err := gorm.Open("postgres", dbConnParam)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer db.Close()
+
+	bankConfig.DB = db
+
+	// go ListenForPayments(bankConfig)
 	StartServer(bankConfig)
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +8,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/jinzhu/gorm"
+
+	"github.com/AbhilashJN/blockchain-remittances-BE/models"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/bank"
 	"github.com/AbhilashJN/blockchain-remittances-BE/utils"
@@ -26,27 +29,27 @@ func pong(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListenForPayments returns
-func ListenForPayments(bankConfig BankConfig) {
-	ctx := context.Background()
+// func ListenForPayments(bankConfig BankConfig) {
+// 	ctx := context.Background()
 
-	cursor := horizon.Cursor("now")
+// 	cursor := horizon.Cursor("now")
 
-	fmt.Println("Waiting for a payment...")
+// 	fmt.Println("Waiting for a payment...")
 
-	err := horizon.DefaultTestNetClient.StreamTransactions(ctx, bank.StellarAddresses.Distributor, &cursor,
-		func(transaction horizon.Transaction) {
-			if err := handleTransaction(bank, transaction); err != nil {
-				log.Printf("In callback of StreamTransactions: %s", err.Error())
-			}
-		},
-	)
+// 	err := horizon.DefaultTestNetClient.StreamTransactions(ctx, bank.StellarAddresses.Distributor, &cursor,
+// 		func(transaction horizon.Transaction) {
+// 			if err := handleTransaction(bank, transaction); err != nil {
+// 				log.Printf("In callback of StreamTransactions: %s", err.Error())
+// 			}
+// 		},
+// 	)
 
-	if err != nil {
-		fmt.Printf("shit happened")
-		panic(err)
-	}
+// 	if err != nil {
+// 		fmt.Printf("shit happened")
+// 		panic(err)
+// 	}
 
-}
+// }
 
 func handleTransaction(bank *bank.Bank, transaction horizon.Transaction) error {
 	if bank.StellarAddresses.Distributor == transaction.Account {
@@ -91,6 +94,7 @@ func handleTransaction(bank *bank.Bank, transaction horizon.Transaction) error {
 func getReceiverInfo(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		if err := r.ParseForm(); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "ParseForm() err\n: %v", err)
 			return
 		}
@@ -117,6 +121,7 @@ func sendPayment(w http.ResponseWriter, r *http.Request, bank *bank.Bank) {
 
 	if r.Method == "POST" {
 		if err := r.ParseForm(); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintf(w, "ParseForm() err: %v", err)
 			return
 		}
@@ -156,30 +161,38 @@ func sendPayment(w http.ResponseWriter, r *http.Request, bank *bank.Bank) {
 	}
 }
 
-func getCustomerAccountDetails(w http.ResponseWriter, r *http.Request, bank *bank.Bank) {
+func getAccountDetails(w http.ResponseWriter, r *http.Request, bank BankConfig) {
 	if r.Method == "GET" {
-		if err := r.ParseForm(); err != nil {
-			fmt.Fprintf(w, "ParseForm() err: %v", err)
+		queryParams := r.URL.Query()
+		bankAccountID, ok := queryParams["BankAccountID"]
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "BankAccountID parameter not found in the query string")
 			return
 		}
-		customerBankAccountDetails, err := db.ReadCustomerBankAccountDetails(bank.Name, r.FormValue("BankAccountID"))
-		if err != nil {
-			fmt.Fprintf(w, "reading failed: %v", err)
+
+		var account models.Account
+		if err := bank.DB.Where("ID = ?", bankAccountID).First(&account).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "account not found")
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `bank.DB.Where("ID = ?", bankAccountID).First(&account).Error failed:\n %v`, err)
 			return
 		}
-		fmt.Println(r.FormValue("BankAccountID"))
+
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		jsEncoder := json.NewEncoder(w)
-		err = jsEncoder.Encode(customerBankAccountDetails)
-		if err != nil {
-			fmt.Fprintf(w, "jsEncoder.Encode(customerBankAccountDetails) failed:\n error %v", err)
+		if err := json.NewEncoder(w).Encode(account); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "json.NewEncoder(w).Encode(account) failed:\n %v", err)
 			return
 		}
 	}
 }
 
-func makeHandler(fn func(http.ResponseWriter, *http.Request, *bank.Bank), bank *bank.Bank) http.HandlerFunc {
+func makeHandler(fn func(http.ResponseWriter, *http.Request, BankConfig), bank BankConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fn(w, r, bank)
 	}
@@ -189,8 +202,8 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request, *bank.Bank), bank *
 func StartServer(bankConfig BankConfig) {
 	http.HandleFunc("/ping", pong)
 	http.HandleFunc("/getReceiverInfo", getReceiverInfo)
-	http.HandleFunc("/sendPayment", makeHandler(sendPayment, bankConfig))
-	http.HandleFunc("/getCustomerAccountDetails", makeHandler(getCustomerAccountDetails, bankConfig))
+	// http.HandleFunc("/sendPayment", makeHandler(sendPayment, bankConfig))
+	http.HandleFunc("/accountDetails", makeHandler(getAccountDetails, bankConfig))
 	fmt.Println("\n\nserver is starting...")
 	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", bankConfig.Port), nil)
 	if err != nil {

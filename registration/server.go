@@ -134,7 +134,32 @@ func registerNewUser(w http.ResponseWriter, r *http.Request, db *gorm.DB) {
 		user.BankInfo = userBankInfo
 
 		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
 		if err := json.NewEncoder(w).Encode(user); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, "json.NewEncoder(w).Encode(user) failed:\n %v", err)
+			return
+		}
+	}
+}
+
+func getBanksList(w http.ResponseWriter, r *http.Request, db *gorm.DB) {
+	if r.Method == "GET" {
+		var bankNameList []string
+		rows, err := db.Table("banks").Select("name").Rows()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `db.Table("banks").Select("name").Rows() failed:\n %v`, err)
+			return
+		}
+		for rows.Next() {
+			var bankName string
+			rows.Scan(&bankName)
+			bankNameList = append(bankNameList, bankName)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(bankNameList); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, "json.NewEncoder(w).Encode(user) failed:\n %v", err)
 			return
@@ -236,7 +261,7 @@ func main() {
 	print(serverAddress)
 	http.HandleFunc("/registerNewUser", makeHandler(registerNewUser, db))
 	http.HandleFunc("/getUserInfo", makeHandler(getUserInfo, db))
-
+	http.HandleFunc("/getBanksList", makeHandler(getBanksList, db))
 	fmt.Println("\n\nRegistartion server is starting...")
 	err = http.ListenAndServe(serverAddress, nil)
 	if err != nil {

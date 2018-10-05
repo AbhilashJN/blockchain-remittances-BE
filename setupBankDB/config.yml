@@ -1,0 +1,18 @@
+Banks:
+- BankName: "SBI"
+  BankPoolAccID: "123456789SBIPOOL123456789"
+  Database:
+    Host: "localhost"
+    Port: 5432
+    User: "sbiadmin"
+    Password: "sbiadmin339"
+    DbName: "sbi"
+
+- BankName: "JP MORGAN"
+  BankPoolAccID: "987654321JPMORGANPOOL987654321"
+  Database:
+    Host: "localhost"
+    Port: 5432
+    User: "jpmadmin"
+    Password: "jpmadmin339"
+    DbName: "jpm"

@@ -13,6 +13,7 @@ type Account struct {
 type Transaction struct {
 	ID                        string `gorm:"primary_key"`
 	From, To, TransactionType string
+	Name                      string
 	Amount                    float64
 	AccountID                 string
 }

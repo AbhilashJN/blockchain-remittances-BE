@@ -79,8 +79,6 @@ func receivePayment(bank BankConfig, transaction horizon.Transaction) error {
 	fmt.Printf("From bank account: %q, name: %q \n", senderAccountID, senderName)
 	fmt.Printf("Bank account to credit: %q\n", receiverAccountID)
 
-	receiverTransactionDetails := models.Transaction{AccountID: receiverAccountID, TransactionType: "credit", From: senderAccountID, Amount: amount, ID: transaction.ID}
-	bankPoolTransactionDetails := models.Transaction{AccountID: bank.BankPoolAccID, TransactionType: "debit", To: receiverAccountID, Amount: amount, ID: fmt.Sprintf("POOLTORCVR:%s", receiverAccountID)}
 	var receiverAccount models.Account
 	var bankPoolAccount models.Account
 
@@ -96,6 +94,11 @@ func receivePayment(bank BankConfig, transaction horizon.Transaction) error {
 	if err := bank.DB.Find(&bankPoolAccount).Update("Balance", bankPoolAccount.Balance-amount).Error; err != nil {
 		return err
 	}
+
+	receiverTransactionDetails := models.Transaction{AccountID: receiverAccountID, Name: senderName, TransactionType: "credit", From: senderAccountID, Amount: amount, ID: transaction.ID}
+
+	bankPoolTransactionDetails := models.Transaction{AccountID: bank.BankPoolAccID, Name: receiverAccount.Name, TransactionType: "debit", To: receiverAccountID, Amount: amount, ID: fmt.Sprintf("POOLTORCVR:%s", receiverAccountID)}
+
 	if err := bank.DB.Create(&receiverTransactionDetails).Error; err != nil {
 		return err
 	}
@@ -115,10 +118,10 @@ func sendPayment(w http.ResponseWriter, r *http.Request, bank BankConfig) {
 			return
 		}
 
-		amountQueryKey, senderNameQueryKey, senderBankAccIDQueryKey := "Amount", "SenderName", "SenderBankAccountID"
+		amountQueryKey, senderNameQueryKey, receiverNameQueryKey, senderBankAccIDQueryKey := "Amount", "SenderName", "ReceiverName", "SenderBankAccountID"
 		receiverBankAccIDQueryKey, receiverBankStellarDistAddressQueryKey := "ReceiverBankAccountID", "ReceiverBankStellarDistributorAddress"
 
-		for _, fieldName := range []string{amountQueryKey, senderNameQueryKey, senderBankAccIDQueryKey, receiverBankAccIDQueryKey, receiverBankStellarDistAddressQueryKey} {
+		for _, fieldName := range []string{amountQueryKey, senderNameQueryKey, receiverNameQueryKey, senderBankAccIDQueryKey, receiverBankAccIDQueryKey, receiverBankStellarDistAddressQueryKey} {
 			_, ok := r.PostForm[fieldName]
 			if !ok {
 				w.WriteHeader(http.StatusBadRequest)
@@ -127,7 +130,7 @@ func sendPayment(w http.ResponseWriter, r *http.Request, bank BankConfig) {
 			}
 		}
 
-		senderName, senderBankAccountID := r.PostFormValue(senderNameQueryKey), r.PostFormValue(senderBankAccIDQueryKey)
+		senderName, receiverName, senderBankAccountID := r.PostFormValue(senderNameQueryKey), r.PostFormValue(receiverNameQueryKey), r.PostFormValue(senderBankAccIDQueryKey)
 		receiverBankAccountID, receiverBankStellarDistributorAddress := r.PostFormValue(receiverBankAccIDQueryKey), r.PostFormValue(receiverBankStellarDistAddressQueryKey)
 		amountToCredit := r.PostFormValue(amountQueryKey)
 
@@ -150,8 +153,8 @@ func sendPayment(w http.ResponseWriter, r *http.Request, bank BankConfig) {
 
 		fmt.Printf("Successful payment transaction by %q on the stellar network\n:", bank.Name)
 
-		var senderAccTransactionDetails = models.Transaction{AccountID: senderBankAccountID, TransactionType: "debit", To: receiverBankAccountID, Amount: amountInFloat, ID: resp.Hash}
-		var poolAccTransactionDetails = models.Transaction{AccountID: bank.BankPoolAccID, TransactionType: "credit", From: senderBankAccountID, Amount: amountInFloat, ID: fmt.Sprintf("SNDRTOPOOl:%s", senderBankAccountID)}
+		var senderAccTransactionDetails = models.Transaction{AccountID: senderBankAccountID, Name: receiverName, TransactionType: "debit", To: receiverBankAccountID, Amount: amountInFloat, ID: resp.Hash}
+		var poolAccTransactionDetails = models.Transaction{AccountID: bank.BankPoolAccID, Name: senderName, TransactionType: "credit", From: senderBankAccountID, Amount: amountInFloat, ID: fmt.Sprintf("SNDRTOPOOl:%s", senderBankAccountID)}
 
 		var senderAccount models.Account
 		var bankPoolAccount models.Account

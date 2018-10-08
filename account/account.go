@@ -58,7 +58,7 @@ func CreateTestAccount() (*keypair.Full, error) {
 		      "href": "https://horizon-testnet.stellar.org/transactions/723b27f4de27f3343370d9035a23af63f6dbdb088294ee4bba2f348d03f7e31e"
 		    }
 		  },
-		  "hash": "723b27f4de27f3343370d9035a23af63f6dbdb088294ee4bba2f348d03f7e31e",
+		  "hash": "723	b27f4de27f3343370d9035a23af63f6dbdb088294ee4bba2f348d03f7e31e",
 		  "ledger": 10629716,
 		  "envelope_xdr": "AAAAABB90WssODNIgi6BHveqzxTRmIpvAFRyVNM+Hm2GVuCcAAAAZABiwhcAA0QFAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAkLpH4c8xeifbL+ywyaaUXHptwPTqKIBMyT5H/91L+IoAAAAXSHboAAAAAAAAAAABhlbgnAAAAECwP1Zv0N+hRYHhHdyf1XaCbYPWhIdstOvv3YiLdRx/ShZcfOOus6iMTQ1KhiOiOwTzgjP8+OhtxxUyy5cUgWIL",
 		  "result_xdr": "AAAAAAAAAGQAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAA=",

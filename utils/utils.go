@@ -3,6 +3,7 @@ package utils
 import (
 	"encoding/base64"
 	"fmt"
+	"math/rand"
 	"strings"
 
 	"github.com/stellar/go/build"
@@ -110,3 +111,14 @@ func BuildAsset(issuerAddress, assetCode string) build.Asset {
 // 	}
 // 	return target, nil
 // }
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+// CreateRandomString returns
+func CreateRandomString() string {
+	n := 15
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]
+	}
+	return string(b)
+}

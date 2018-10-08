@@ -97,7 +97,7 @@ func receivePayment(bank BankConfig, transaction horizon.Transaction) error {
 
 	receiverTransactionDetails := models.Transaction{AccountID: receiverAccountID, Name: senderName, TransactionType: "credit", From: senderAccountID, Amount: amount, ID: transaction.ID}
 
-	bankPoolTransactionDetails := models.Transaction{AccountID: bank.BankPoolAccID, Name: receiverAccount.Name, TransactionType: "debit", To: receiverAccountID, Amount: amount, ID: fmt.Sprintf("POOLTORCVR:%s", receiverAccountID)}
+	bankPoolTransactionDetails := models.Transaction{AccountID: bank.BankPoolAccID, Name: receiverAccount.Name, TransactionType: "debit", To: receiverAccountID, Amount: amount, ID: fmt.Sprintf("POOLTORCVR:%s", utils.CreateRandomString())}
 
 	if err := bank.DB.Create(&receiverTransactionDetails).Error; err != nil {
 		return err
@@ -154,7 +154,7 @@ func sendPayment(w http.ResponseWriter, r *http.Request, bank BankConfig) {
 		fmt.Printf("Successful payment transaction by %q on the stellar network\n:", bank.Name)
 
 		var senderAccTransactionDetails = models.Transaction{AccountID: senderBankAccountID, Name: receiverName, TransactionType: "debit", To: receiverBankAccountID, Amount: amountInFloat, ID: resp.Hash}
-		var poolAccTransactionDetails = models.Transaction{AccountID: bank.BankPoolAccID, Name: senderName, TransactionType: "credit", From: senderBankAccountID, Amount: amountInFloat, ID: fmt.Sprintf("SNDRTOPOOl:%s", senderBankAccountID)}
+		var poolAccTransactionDetails = models.Transaction{AccountID: bank.BankPoolAccID, Name: senderName, TransactionType: "credit", From: senderBankAccountID, Amount: amountInFloat, ID: fmt.Sprintf("SNDRTOPOOl:%s", utils.CreateRandomString())}
 
 		var senderAccount models.Account
 		var bankPoolAccount models.Account

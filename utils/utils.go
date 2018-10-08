@@ -111,11 +111,11 @@ func BuildAsset(issuerAddress, assetCode string) build.Asset {
 // 	}
 // 	return target, nil
 // }
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const letterBytes = "1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 // CreateRandomString returns
 func CreateRandomString() string {
-	n := 15
+	n := 50
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]

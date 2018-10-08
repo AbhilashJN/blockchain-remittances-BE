@@ -162,31 +162,37 @@ func sendPayment(w http.ResponseWriter, r *http.Request, bank BankConfig) {
 		if err := bank.DB.Where("ID = ?", senderBankAccountID).First(&senderAccount).Error; err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, `bank.DB.Where("ID = ?", senderBankAccountID).First(&senderAccount).Error failed: %v`, err)
+			return
 		}
 
 		if err := bank.DB.Where("ID = ?", bank.BankPoolAccID).First(&bankPoolAccount).Error; err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, `bank.DB.Where("ID = ?", senderBankAccountID).First(&senderAccount).Error failed: %v`, err)
+			return
 		}
 
-		if err := bank.DB.Find(&senderAccount).Update("Balance", senderAccount.Balance-amountInFloat).Error; err != nil {
+		if err := bank.DB.First(&senderAccount).Update("Balance", senderAccount.Balance-amountInFloat).Error; err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, `bank.DB.Model(&senderAccount).Update("Balance", senderAccount.Balance-amountInFloat).Error failed: %v`, err)
+			return
 		}
 
-		if err := bank.DB.Find(&bankPoolAccount).Update("Balance", bankPoolAccount.Balance+amountInFloat).Error; err != nil {
+		if err := bank.DB.First(&bankPoolAccount).Update("Balance", bankPoolAccount.Balance+amountInFloat).Error; err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, `bank.DB.Model(&senderAccount).Update("Balance", senderAccount.Balance-amountInFloat).Error failed: %v`, err)
+			return
 		}
 
 		if err := bank.DB.Create(&senderAccTransactionDetails).Error; err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, `bank.DB.Create(&senderTransactionDetails).Error failed: %v`, err)
+			return
 		}
 
 		if err := bank.DB.Create(&poolAccTransactionDetails).Error; err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, `bank.DB.Create(&senderTransactionDetails).Error failed: %v`, err)
+			return
 		}
 
 		fmt.Fprintf(w, "success")
@@ -232,6 +238,104 @@ func getAccountDetails(w http.ResponseWriter, r *http.Request, bank BankConfig) 
 	}
 }
 
+func withdrawAmount(w http.ResponseWriter, r *http.Request, bank BankConfig) {
+	if r.Method == "POST" {
+		if err := r.ParseForm(); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
+			return
+		}
+		amountQueryKey, accountIDQueryKey := "Amount", "AccountID"
+
+		for _, fieldName := range []string{amountQueryKey, accountIDQueryKey} {
+			_, ok := r.PostForm[fieldName]
+			if !ok {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "%s field not found in the request's body", fieldName)
+				return
+			}
+		}
+		amount, accountID := r.PostFormValue(amountQueryKey), r.PostFormValue(accountIDQueryKey)
+		amountInFloat, err := strconv.ParseFloat(amount, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "strconv.ParseFloat(amount, 64) failed\n: %v", err)
+			return
+		}
+
+		var accountTxDetails = models.Transaction{AccountID: accountID, Name: "Self", TransactionType: "debit", To: "", Amount: amountInFloat, ID: utils.CreateRandomString()}
+
+		var userAccount models.Account
+		if err := bank.DB.Where("ID = ?", accountID).First(&userAccount).Update("Balance", userAccount.Balance-amountInFloat).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, fmt.Sprintf("%q account not found", accountID))
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `bank.DB.Where("ID = ?", accountID).First(&userAccount).Update("Balance", userAccount.Balance-amountInFloat).Error failed: %v`, err)
+			return
+		}
+
+		if err := bank.DB.Create(&accountTxDetails).Error; err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `bank.DB.Create(&accountTxDetails).Error failed: %v`, err)
+			return
+		}
+
+		fmt.Fprintf(w, "success")
+	}
+}
+
+func depositAmount(w http.ResponseWriter, r *http.Request, bank BankConfig) {
+	if r.Method == "POST" {
+		if err := r.ParseForm(); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "ParseForm() err: %v", err)
+			return
+		}
+		amountQueryKey, accountIDQueryKey := "Amount", "AccountID"
+
+		for _, fieldName := range []string{amountQueryKey, accountIDQueryKey} {
+			_, ok := r.PostForm[fieldName]
+			if !ok {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, "%s field not found in the request's body", fieldName)
+				return
+			}
+		}
+		amount, accountID := r.PostFormValue(amountQueryKey), r.PostFormValue(accountIDQueryKey)
+		amountInFloat, err := strconv.ParseFloat(amount, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "strconv.ParseFloat(amount, 64) failed\n: %v", err)
+			return
+		}
+
+		var accountTxDetails = models.Transaction{AccountID: accountID, Name: "Self", TransactionType: "credit", To: "", Amount: amountInFloat, ID: utils.CreateRandomString()}
+
+		var userAccount models.Account
+		if err := bank.DB.Where("ID = ?", accountID).First(&userAccount).Update("Balance", userAccount.Balance+amountInFloat).Error; err != nil {
+			if gorm.IsRecordNotFoundError(err) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, fmt.Sprintf("%q account not found", accountID))
+				return
+			}
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `bank.DB.Where("ID = ?", accountID).First(&userAccount).Update("Balance", userAccount.Balance-amountInFloat).Error failed: %v`, err)
+			return
+		}
+
+		if err := bank.DB.Create(&accountTxDetails).Error; err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprintf(w, `bank.DB.Create(&accountTxDetails).Error failed: %v`, err)
+			return
+		}
+
+		fmt.Fprintf(w, "success")
+	}
+}
+
 func makeHandler(fn func(http.ResponseWriter, *http.Request, BankConfig), bank BankConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fn(w, r, bank)
@@ -243,6 +347,8 @@ func StartServer(bank BankConfig) {
 	http.HandleFunc("/ping", pong)
 	http.HandleFunc("/sendPayment", makeHandler(sendPayment, bank))
 	http.HandleFunc("/accountDetails", makeHandler(getAccountDetails, bank))
+	http.HandleFunc("/withdrawAmount", makeHandler(withdrawAmount, bank))
+	http.HandleFunc("/depositAmount", makeHandler(depositAmount, bank))
 	fmt.Println("\n\nserver is starting...")
 	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", bank.Port), nil)
 	if err != nil {

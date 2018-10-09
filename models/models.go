@@ -11,7 +11,7 @@ type Account struct {
 
 // Transaction defines the model for transactions table
 type Transaction struct {
-	ID                        string `gorm:"primary_key"`
+	TxID                      string
 	From, To, TransactionType string
 	Name                      string
 	Amount                    float64

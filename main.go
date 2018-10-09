@@ -254,6 +254,6 @@ func main() {
 
 	bankConfig.DB = db
 
-	go ListenForPayments(bankConfig)
+	go listenForPayments(bankConfig)
 	StartServer(bankConfig)
 }

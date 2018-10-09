@@ -2,30 +2,58 @@ package utils
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
 
 	"github.com/stellar/go/build"
+	"github.com/stellar/go/clients/horizon"
 	"github.com/stellar/go/keypair"
 	"github.com/stellar/go/xdr"
 )
 
-// DecodeTransactionEnvelope returns
-func DecodeTransactionEnvelope(data string) (xdr.TransactionEnvelope, error) {
+type PaymentInfo struct {
+	AssetCode         [4]byte
+	Amount            float64
+	SenderAccountID   string
+	ReceiverAccountID string
+	SenderName        string
+	TxID              string
+}
 
-	rawr := strings.NewReader(data)
+// DecodeTransactionEnvelope returns
+func DecodeTransactionEnvelope(transaction horizon.Transaction) (*PaymentInfo, error) {
+
+	rawr := strings.NewReader(transaction.EnvelopeXdr)
 	b64r := base64.NewDecoder(base64.StdEncoding, rawr)
 
-	var tx xdr.TransactionEnvelope
-	bytesRead, err := xdr.Unmarshal(b64r, &tx)
+	var txEnv xdr.TransactionEnvelope
+	bytesRead, err := xdr.Unmarshal(b64r, &txEnv)
 
 	if err != nil {
-		return tx, err
+		return nil, err
 	}
 
+	// spew.Dump(transaction) //pretty print function
+	fields := strings.Split(transaction.Memo, ";")
+	receiverAccountID, senderAccountID, senderName := fields[0], fields[1], fields[2]
+	operation := txEnv.Tx.Operations[0].Body.PaymentOp
+	amount := float64(operation.Amount) / 1e7 // TODO: Verify the validity of this
+	assetInfo, ok := operation.Asset.GetAlphaNum4()
+	if !ok {
+		return nil, errors.New("GetAlphaNum4() failed: Could not extract alpha4 asset from the envelope operation")
+	}
+
+	log.Printf("Asset code: %q\n", assetInfo.AssetCode)
+	log.Printf("Amount: %f\n", amount)
+	log.Printf("From bank account: %q, name: %q \n", senderAccountID, senderName)
+	log.Printf("Bank account to credit: %q\n", receiverAccountID)
 	fmt.Printf("Successful decoding of transaction envelope. Read %d bytes\n", bytesRead)
-	return tx, nil
+	return &PaymentInfo{
+		TxID: transaction.ID, AssetCode: assetInfo.AssetCode, Amount: amount, SenderAccountID: senderAccountID, SenderName: senderName, ReceiverAccountID: receiverAccountID,
+	}, nil
 }
 
 // LogAccountDetails returns

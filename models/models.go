@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 // Account defines the model for accounts table
 // An Account can have many transactions, AccountID is the foreign key
 type Account struct {
@@ -11,6 +13,7 @@ type Account struct {
 
 // Transaction defines the model for transactions table
 type Transaction struct {
+	CreatedAt                 time.Time
 	TxID                      string
 	From, To, TransactionType string
 	Name                      string
@@ -23,6 +26,7 @@ type Bank struct {
 	Name               string `gorm:"primary_key"`
 	StellarAppURL      string
 	DistributorAddress string
+	NativeCurrency     string
 }
 
 // User structure defines the model for users table

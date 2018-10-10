@@ -15,12 +15,25 @@ import (
 )
 
 type PaymentInfo struct {
-	AssetCode         [4]byte
+	AssetCode         string
 	Amount            float64
 	SenderAccountID   string
 	ReceiverAccountID string
 	SenderName        string
 	TxID              string
+}
+
+// var exchangeRates = map[string]type
+
+func convertSenderAssetAmountToBankNativeAssetAmount(senderAssetCode string, amountInSenderCurrency float64) float64 {
+	var amountInBankNativeCurrency float64
+	switch senderAssetCode {
+	case "JPMT":
+		amountInBankNativeCurrency = amountInSenderCurrency * 80
+	case "SBIT":
+		amountInBankNativeCurrency = amountInSenderCurrency / 80
+	}
+	return amountInBankNativeCurrency
 }
 
 // DecodeTransactionEnvelope returns
@@ -40,19 +53,24 @@ func DecodeTransactionEnvelope(transaction horizon.Transaction) (*PaymentInfo, e
 	fields := strings.Split(transaction.Memo, ";")
 	receiverAccountID, senderAccountID, senderName := fields[0], fields[1], fields[2]
 	operation := txEnv.Tx.Operations[0].Body.PaymentOp
-	amount := float64(operation.Amount) / 1e7 // TODO: Verify the validity of this
-	assetInfo, ok := operation.Asset.GetAlphaNum4()
+	amountInSenderCurrency := float64(operation.Amount) / 1e7 // TODO: Verify the validity of this
+	senderAssetInfo, ok := operation.Asset.GetAlphaNum4()
 	if !ok {
 		return nil, errors.New("GetAlphaNum4() failed: Could not extract alpha4 asset from the envelope operation")
 	}
 
-	log.Printf("Asset code: %q\n", assetInfo.AssetCode)
-	log.Printf("Amount: %f\n", amount)
+	senderAssetCode := string(senderAssetInfo.AssetCode[:4])
+
+	log.Printf("Asset code: %q\n", senderAssetInfo.AssetCode)
+	log.Printf("Amount in sender currency: %f\n", amountInSenderCurrency)
 	log.Printf("From bank account: %q, name: %q \n", senderAccountID, senderName)
 	log.Printf("Bank account to credit: %q\n", receiverAccountID)
 	fmt.Printf("Successful decoding of transaction envelope. Read %d bytes\n", bytesRead)
+
+	amountInBankNativeCurrency := convertSenderAssetAmountToBankNativeAssetAmount(senderAssetCode, amountInSenderCurrency)
+
 	return &PaymentInfo{
-		TxID: transaction.ID, AssetCode: assetInfo.AssetCode, Amount: amount, SenderAccountID: senderAccountID, SenderName: senderName, ReceiverAccountID: receiverAccountID,
+		TxID: transaction.ID, AssetCode: senderAssetCode, Amount: amountInBankNativeCurrency, SenderAccountID: senderAccountID, SenderName: senderName, ReceiverAccountID: receiverAccountID,
 	}, nil
 }
 

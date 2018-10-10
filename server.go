@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/jinzhu/gorm"
-	pusher "github.com/pusher/pusher-http-go"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/models"
 	"github.com/AbhilashJN/blockchain-remittances-BE/transaction"
@@ -93,17 +92,17 @@ func receivePayment(bank BankConfig, transaction horizon.Transaction) error {
 		return err
 	}
 
-	client := pusher.Client{
-		AppId:   "616847",
-		Key:     "1a2a85ebc215a91e0ee8",
-		Secret:  "32bdbb06e06bb870e9e2",
-		Cluster: "ap2",
-		Secure:  true,
-	}
+	// client := pusher.Client{
+	// 	AppId:   "616847",
+	// 	Key:     "1a2a85ebc215a91e0ee8",
+	// 	Secret:  "32bdbb06e06bb870e9e2",
+	// 	Cluster: "ap2",
+	// 	Secure:  true,
+	// }
 
-	data := map[string]string{"message": "hello world"}
-	fmt.Printf("This shit working %+v\n", data)
-	client.Trigger("my-channel", "my-event", data)
+	// data := map[string]string{"message": "hello world"}
+	// fmt.Printf("This shit working %+v\n", data)
+	// client.Trigger("my-channel", "my-event", data)
 
 	return nil
 }

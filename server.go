@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/jinzhu/gorm"
+	pusher "github.com/pusher/pusher-http-go"
 
 	"github.com/AbhilashJN/blockchain-remittances-BE/models"
 	"github.com/AbhilashJN/blockchain-remittances-BE/transaction"
@@ -74,10 +75,10 @@ func receivePayment(bank BankConfig, transaction horizon.Transaction) error {
 	if err := bank.DB.Where("ID = ?", bank.BankPoolAccID).First(&bankPoolAccount).Error; err != nil {
 		return err
 	}
-	if err := bank.DB.Find(&receiverAccount).Update("Balance", receiverAccount.Balance+paymentInfo.Amount).Error; err != nil {
+	if err := bank.DB.First(&receiverAccount).Update("Balance", receiverAccount.Balance+paymentInfo.Amount).Error; err != nil {
 		return err
 	}
-	if err := bank.DB.Find(&bankPoolAccount).Update("Balance", bankPoolAccount.Balance-paymentInfo.Amount).Error; err != nil {
+	if err := bank.DB.First(&bankPoolAccount).Update("Balance", bankPoolAccount.Balance-paymentInfo.Amount).Error; err != nil {
 		return err
 	}
 
@@ -91,6 +92,18 @@ func receivePayment(bank BankConfig, transaction horizon.Transaction) error {
 	if err := bank.DB.Create(&bankPoolTransactionDetails).Error; err != nil {
 		return err
 	}
+
+	client := pusher.Client{
+		AppId:   "616847",
+		Key:     "1a2a85ebc215a91e0ee8",
+		Secret:  "32bdbb06e06bb870e9e2",
+		Cluster: "ap2",
+		Secure:  true,
+	}
+
+	data := map[string]string{"message": "hello world"}
+	fmt.Printf("This shit working %+v\n", data)
+	client.Trigger("my-channel", "my-event", data)
 
 	return nil
 }
@@ -121,6 +134,17 @@ func sendPayment(w http.ResponseWriter, r *http.Request, bank BankConfig) {
 		amountInFloat, err := strconv.ParseFloat(amountToCredit, 64)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		var senderAccount models.Account
+		if err := bank.DB.Where("ID = ?", senderBankAccountID).First(&senderAccount).Error; err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if senderAccount.Balance-amountInFloat < 0 {
+			http.Error(w, fmt.Sprintf("Insufficient balance to make the payment"), http.StatusBadRequest)
 			return
 		}
 
@@ -168,7 +192,6 @@ func sendPayment(w http.ResponseWriter, r *http.Request, bank BankConfig) {
 		var senderAccTransactionDetails = models.Transaction{AccountID: senderBankAccountID, Name: receiverName, TransactionType: "debit", To: receiverBankAccountID, Amount: amountInFloat, TxID: resp.Hash}
 		var poolAccTransactionDetails = models.Transaction{AccountID: bank.BankPoolAccID, Name: senderName, TransactionType: "credit", From: senderBankAccountID, Amount: amountInFloat, TxID: fmt.Sprintf("SNDRTOPOOl:%s", utils.CreateRandomString())}
 
-		var senderAccount models.Account
 		var bankPoolAccount models.Account
 
 		if err := bank.DB.Where("ID = ?", senderBankAccountID).First(&senderAccount).Update("Balance", senderAccount.Balance-amountInFloat).Error; err != nil {
@@ -254,15 +277,24 @@ func withdrawAmount(w http.ResponseWriter, r *http.Request, bank BankConfig) {
 			return
 		}
 
-		var accountTxDetails = models.Transaction{AccountID: accountID, Name: "Self", TransactionType: "debit", To: "", Amount: amountInFloat, TxID: utils.CreateRandomString()}
-
 		var userAccount models.Account
-		if err := bank.DB.Where("ID = ?", accountID).First(&userAccount).Update("Balance", userAccount.Balance-amountInFloat).Error; err != nil {
+		if err := bank.DB.Where("ID = ?", accountID).First(&userAccount).Error; err != nil {
 			if gorm.IsRecordNotFoundError(err) {
-				w.WriteHeader(http.StatusNotFound)
-				fmt.Fprintf(w, fmt.Sprintf("%q account not found", accountID))
+				http.Error(w, fmt.Sprintf("%q account not found", accountID), http.StatusNotFound)
 				return
 			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if userAccount.Balance-amountInFloat < 0 {
+			http.Error(w, fmt.Sprintf("Insufficient balance to make the payment"), http.StatusBadRequest)
+			return
+		}
+
+		var accountTxDetails = models.Transaction{AccountID: accountID, Name: "Self", TransactionType: "debit", To: "", Amount: amountInFloat, TxID: utils.CreateRandomString()}
+
+		if err := bank.DB.First(&userAccount).Update("Balance", userAccount.Balance-amountInFloat).Error; err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			fmt.Fprintf(w, `bank.DB.Where("ID = ?", accountID).First(&userAccount).Update("Balance", userAccount.Balance-amountInFloat).Error failed: %v`, err)
 			return

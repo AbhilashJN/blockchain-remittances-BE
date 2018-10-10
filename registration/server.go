@@ -192,8 +192,8 @@ type Config struct {
 var config Config
 
 var seedBanks = []models.Bank{
-	models.Bank{Name: "SBI", StellarAppURL: "localhost:7070", DistributorAddress: "GDGDRDMRMW22LM2AAX5NM4TGVN3BOJUEOWAIVHHW2HLG2SQWU37UY73U"},
-	models.Bank{Name: "JP MORGAN", StellarAppURL: "localhost:6060", DistributorAddress: "GDT674D4C5SFIUK7I5XVHOPSR7RC72ODKXQUHGNINVOLFJ32HYAEVQBS"},
+	models.Bank{Name: "SBI", StellarAppURL: "localhost:7070", DistributorAddress: "GDGDRDMRMW22LM2AAX5NM4TGVN3BOJUEOWAIVHHW2HLG2SQWU37UY73U", NativeCurrency: "INR"},
+	models.Bank{Name: "JP MORGAN", StellarAppURL: "localhost:6060", DistributorAddress: "GDT674D4C5SFIUK7I5XVHOPSR7RC72ODKXQUHGNINVOLFJ32HYAEVQBS", NativeCurrency: "USD"},
 }
 
 var seedUsers = []models.User{

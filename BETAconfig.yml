@@ -1,8 +1,8 @@
-Name: "JP MORGAN"
+Name: "BETA"
 
 Port: 6060
 
-StellarAssetCode: "JPMT"
+StellarAssetCode: "USDT"
 
 StellarSeeds:
   Source: "SDD6C7TGJMW6MFWJOYVJDK6G6ZUNSU5TBFI5BW7FB2DRCEWEWA7QROMB"
@@ -21,4 +21,4 @@ DBconnectionParams:
   password: "jpmadmin339"
   dbName: "jpm"
 
-BankPoolAccID: "987654321JPMORGANPOOL987654321"
+BankPoolAccID: "987654321BETAPOOL987654321"

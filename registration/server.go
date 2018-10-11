@@ -192,14 +192,14 @@ type Config struct {
 var config Config
 
 var seedBanks = []models.Bank{
-	models.Bank{Name: "SBI", StellarAppURL: "localhost:7070", DistributorAddress: "GDGDRDMRMW22LM2AAX5NM4TGVN3BOJUEOWAIVHHW2HLG2SQWU37UY73U", NativeCurrency: "INR"},
-	models.Bank{Name: "JP MORGAN", StellarAppURL: "localhost:6060", DistributorAddress: "GDT674D4C5SFIUK7I5XVHOPSR7RC72ODKXQUHGNINVOLFJ32HYAEVQBS", NativeCurrency: "USD"},
+	models.Bank{Name: "ALPHA", StellarAppURL: "localhost:7070", DistributorAddress: "GDGDRDMRMW22LM2AAX5NM4TGVN3BOJUEOWAIVHHW2HLG2SQWU37UY73U", NativeCurrency: "INR"},
+	models.Bank{Name: "BETA", StellarAppURL: "localhost:6060", DistributorAddress: "GDT674D4C5SFIUK7I5XVHOPSR7RC72ODKXQUHGNINVOLFJ32HYAEVQBS", NativeCurrency: "USD"},
 }
 
 var seedUsers = []models.User{
-	{PhoneNumber: "9976543210", Name: "Sreekar", BankName: "SBI", BankAccountID: "123ABC"},
+	{PhoneNumber: "9976543210", Name: "Sreekar", BankName: "ALPHA", BankAccountID: "123ABC"},
 	// {PhoneNumber: "9876543210", Name: "Abhilash", BankName: "SBI", BankAccountID: "456DEF"},
-	{PhoneNumber: "8976543210", Name: "Milan", BankName: "JP MORGAN", BankAccountID: "789GHI"},
+	{PhoneNumber: "8976543210", Name: "Milan", BankName: "BETA", BankAccountID: "789GHI"},
 	// {PhoneNumber: "8876543210", Name: "Sandeep", BankName: "JP MORGAN", BankAccountID: "321KLM"},
 }
 

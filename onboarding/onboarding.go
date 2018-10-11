@@ -73,7 +73,7 @@ func createSourceAccount() (*keypair.Full, error) {
 }
 
 // CreateTrust returns
-func createTrust(receiver *keypair.Full, sender *keypair.Full, assetCode string) error {
+func CreateTrust(receiver *keypair.Full, sender *keypair.Full, assetCode string) error {
 
 	tx, err := build.Transaction(
 		build.SourceAccount{AddressOrSeed: receiver.Address()},
@@ -166,12 +166,12 @@ func OnboardBank(assetCode, distAccInitBalance, issuingAccMinBal, distributingAc
 
 	fmt.Printf("distributorKeyPair:\n %s\n%s\n", distributorKeyPair.Seed(), distributorKeyPair.Address())
 
-	err = createTrust(distributorKeyPair, issuerKeyPair, assetCode)
+	err = CreateTrust(distributorKeyPair, issuerKeyPair, assetCode)
 	if err != nil {
 		return err
 	}
 
-	_, err = transaction.SendPaymentTransaction("1000000", issuerKeyPair.Address(), distributorKeyPair.Address(), issuerKeyPair.Seed(), "initpump", utils.BuildAsset(issuerKeyPair.Address(), assetCode))
+	_, err = transaction.SendPaymentTransaction(distAccInitBalance, issuerKeyPair.Address(), distributorKeyPair.Address(), issuerKeyPair.Seed(), "initpump", utils.BuildAsset(issuerKeyPair.Address(), assetCode))
 	if err != nil {
 		log.Fatal(err)
 	}

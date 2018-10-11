@@ -54,35 +54,35 @@ func init() {
 	spew.Dump(configForAllBanks)
 }
 
-var sbiAccounts = []models.Account{
+var alphaAccounts = []models.Account{
 	models.Account{
-		ID: "123456789SBIPOOL123456789", Balance: 50000000, Name: "SBI-POOL",
+		ID: "123456789ALPHAPOOL123456789", Balance: 50000000, Name: "ALPHA-POOL",
 	},
 	models.Account{
-		ID: "123ABC", Balance: 500, Name: "Sreekar",
+		ID: "123ABC", Balance: 50000, Name: "Sreekar",
 		// Transactions: []models.Transaction{
 		// 	{From: "789GHI", Amount: 5, TransactionType: "credit", ID: "276XFHGSJGC7D6CSDCDBCGSDGV7S8VJDHSF8S8SD7SDDS9DNHGD6556"},
 		// },
 	},
 	models.Account{
-		ID: "456DEF", Balance: 1000, Name: "Abhilash",
+		ID: "456DEF", Balance: 75000, Name: "Abhilash",
 		// Transactions: []models.Transaction{
 		// 	{From: "321KLM", Amount: 15, TransactionType: "credit", ID: "F7SD6F8SF6DS8FDS5SD65F76FSDF6S8F68S6FSD8F6SD8F6786F88"},
 		// },
 	},
 }
-var jpmAccounts = []models.Account{
+var betaAccounts = []models.Account{
 	models.Account{
-		ID: "987654321JPMORGANPOOL987654321", Balance: 70000000, Name: "JPMORGAN-POOL",
+		ID: "987654321BETAPOOL987654321", Balance: 70000000, Name: "BETA-POOL",
 	},
 	models.Account{
-		ID: "789GHI", Balance: 1500, Name: "Milan",
+		ID: "789GHI", Balance: 115000, Name: "Milan",
 		// Transactions: []models.Transaction{
 		// 	{To: "123ABC", Amount: 5, TransactionType: "debit", ID: "276XFHGSJGC7D6CSDCDBCGSDGV7S8VJDHSF8S8SD7SDDS9DNHGD6556"},
 		// },
 	},
 	models.Account{
-		ID: "321KLM", Balance: 2000, Name: "Sandeep",
+		ID: "321KLM", Balance: 200000, Name: "Sandeep",
 		// Transactions: []models.Transaction{
 		// 	{To: "456DEF", Amount: 15, TransactionType: "debit", ID: "F7SD6F8SF6DS8FDS5SD65F76FSDF6S8F68S6FSD8F6SD8F6786F88"},
 		// },
@@ -91,10 +91,10 @@ var jpmAccounts = []models.Account{
 
 func seedTables(bank string, db *gorm.DB) {
 	var accounts []models.Account
-	if bank == "SBI" {
-		accounts = sbiAccounts
+	if bank == "ALPHA" {
+		accounts = alphaAccounts
 	} else {
-		accounts = jpmAccounts
+		accounts = betaAccounts
 	}
 	// spew.Dump(accounts)
 	for _, account := range accounts {

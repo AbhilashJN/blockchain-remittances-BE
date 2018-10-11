@@ -1,8 +1,8 @@
-Name: "SBI"
+Name: "ALPHA"
 
 Port: 7070
 
-StellarAssetCode: "SBIT"
+StellarAssetCode: "INRT"
 
 StellarSeeds:
   Source: "SAFDGVVDPRXYEME4PPQ5T65LHAP3WXFSOIZR7SXI4TZL2ZZEIRMNZG2Z"
@@ -21,4 +21,4 @@ DBconnectionParams:
   Password: "sbiadmin339"
   DbName: "sbi"
 
-BankPoolAccID: "123456789SBIPOOL123456789"
+BankPoolAccID: "123456789ALPHAPOOL123456789"

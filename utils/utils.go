@@ -28,9 +28,9 @@ type PaymentInfo struct {
 func convertSenderAssetAmountToBankNativeAssetAmount(senderAssetCode string, amountInSenderCurrency float64) float64 {
 	var amountInBankNativeCurrency float64
 	switch senderAssetCode {
-	case "JPMT":
+	case "USDT":
 		amountInBankNativeCurrency = amountInSenderCurrency * 80
-	case "SBIT":
+	case "INRT":
 		amountInBankNativeCurrency = amountInSenderCurrency / 80
 	}
 	return amountInBankNativeCurrency

@@ -185,7 +185,7 @@ import (
 // 	fmt.Println("DISTRIBUTION ACCOUNT END------------------------------------------------\n-")
 // }
 
-var filePath = flag.String("configFile", "./SBIconfig.yml", "config filepath")
+var filePath = flag.String("configFile", "./ALPHAconfig.yml", "config filepath")
 
 // Keys is
 type Keys struct {
@@ -234,10 +234,11 @@ func init() {
 }
 
 func main() {
-	// err := onboarding.OnboardBank("JPMT", "500000000" "100", "100")
+	// err := onboarding.OnboardBank("ALPHAT", "500000000", "100", "100")
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
+
 	flag.Parse()
 	bankConfig := readConfig(*filePath)
 	spew.Dump(bankConfig)

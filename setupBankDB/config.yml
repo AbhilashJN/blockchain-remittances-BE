@@ -1,6 +1,6 @@
 Banks:
-- BankName: "SBI"
-  BankPoolAccID: "123456789SBIPOOL123456789"
+- BankName: "ALPHA"
+  BankPoolAccID: "123456789ALPHAPOOL123456789"
   Database:
     Host: "localhost"
     Port: 5432
@@ -8,8 +8,8 @@ Banks:
     Password: "sbiadmin339"
     DbName: "sbi"
 
-- BankName: "JP MORGAN"
-  BankPoolAccID: "987654321JPMORGANPOOL987654321"
+- BankName: "BETA"
+  BankPoolAccID: "987654321BETAPOOL987654321"
   Database:
     Host: "localhost"
     Port: 5432

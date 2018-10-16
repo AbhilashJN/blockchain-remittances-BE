@@ -234,7 +234,12 @@ func init() {
 }
 
 func main() {
-	// err := onboarding.OnboardBank("ALPHAT", "500000000", "100", "100")
+	// err := onboarding.OnboardBank("INRT", "50000000", "100", "100")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// err = onboarding.OnboardBank("USDT", "75000000", "100", "100")
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }

@@ -265,11 +265,7 @@ func main() {
 	var config = pubnub.NewConfig()
 	config.PublishKey = "pub-c-6afff62e-d5f2-4369-9bed-5baabcf26564"
 	config.SubscribeKey = "sub-c-302c34e4-d1c4-11e8-b41d-e643bd6bdd68"
-
 	pn := pubnub.NewPubNub(config)
-	pn.Subscribe().
-		Channels([]string{"notifications"}). // subscribe to channels
-		Execute()
 
 	bankConfig.Pn = pn
 

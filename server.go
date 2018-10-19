@@ -19,7 +19,12 @@ import (
 
 func pong(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		fmt.Fprintln(w, "pong")
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, "ParseForm fail", http.StatusBadRequest)
+		}
+		fmt.Printf("pong, %s", r.FormValue("Value"))
+		fmt.Fprintln(w, fmt.Sprintf("pong, %s", r.FormValue("Value")))
 	}
 }
 
@@ -92,13 +97,26 @@ func receivePayment(bank BankConfig, transaction horizon.Transaction) error {
 		return err
 	}
 
-	res, status, err := bank.Pn.Publish().
-		Channel("notifications"). // have to change this to receiverAccount.ID
-		Message([]string{fmt.Sprintf("Received %f", paymentInfo.Amount)}).
+	var dat map[string]interface{}
+
+	byt := []byte(`{"pn_gcm":{"data":{"message":"Hello cunty."}}}`)
+
+	if err := json.Unmarshal(byt, &dat); err != nil {
+		panic(err)
+	}
+
+	response, status, err := bank.Pn.Publish().
+		Channel("notifications").
+		Message(dat).
 		UsePost(true).
 		Execute()
+	if err != nil {
+		// Request processing failed.
+		// Handle message publish error
+		fmt.Println(response, status, err)
+	}
 
-	fmt.Println(res, status, err)
+	fmt.Println(response, status, err)
 
 	return nil
 }

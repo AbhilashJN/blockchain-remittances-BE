@@ -135,6 +135,26 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:f50169b65408d094466b55673376006fa024ba52182f67eb2d3a920ea620da57"
+  name = "github.com/pubnub/go"
+  packages = [
+    ".",
+    "pnerr",
+    "utils",
+  ]
+  pruneopts = "UT"
+  revision = "6484c15e8056911de5fbaf17e85d0d6af60374af"
+  version = "v4.1.4"
+
+[[projects]]
+  digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
+  name = "github.com/satori/go.uuid"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
+  version = "v1.2.0"
+
+[[projects]]
   digest = "1:54bd573538ca13ccf85d18c99249d934f17957f17263256b42565a11c854c1de"
   name = "github.com/segmentio/go-loggly"
   packages = ["."]
@@ -251,6 +271,20 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:b41f13f4d5dbbd63abe9bf646575e4f83d2637ca243b97ea79b7807242518e8c"
+  name = "golang.org/x/net"
+  packages = [
+    "context",
+    "http/httpguts",
+    "http2",
+    "http2/hpack",
+    "idna",
+  ]
+  pruneopts = "UT"
+  revision = "49bb7cea24b1df9410e1712aa6433dae904ff66a"
+
+[[projects]]
+  branch = "master"
   digest = "1:4c18b929ff2f30ebf16c43fd9e0755fad03b290af199c5bcd82dde4c80cf8781"
   name = "golang.org/x/sys"
   packages = ["unix"]
@@ -258,15 +292,23 @@
   revision = "90868a75fefd03942536221d7c0e2f84ec62a668"
 
 [[projects]]
-  digest = "1:8029e9743749d4be5bc9f7d42ea1659471767860f0cdc34d37c3111bd308a295"
+  digest = "1:a2ab62866c75542dd18d2b069fec854577a20211d7c0ea6ae746072a1dccdd18"
   name = "golang.org/x/text"
   packages = [
+    "collate",
+    "collate/build",
+    "internal/colltab",
     "internal/gen",
+    "internal/tag",
     "internal/triegen",
     "internal/ucd",
+    "language",
+    "secure/bidirule",
     "transform",
+    "unicode/bidi",
     "unicode/cldr",
     "unicode/norm",
+    "unicode/rangetable",
   ]
   pruneopts = "UT"
   revision = "f21a4dfb5e38f5895301dc265a8def02365cc3d0"
@@ -287,6 +329,7 @@
     "github.com/davecgh/go-spew/spew",
     "github.com/jinzhu/gorm",
     "github.com/jinzhu/gorm/dialects/postgres",
+    "github.com/pubnub/go",
     "github.com/spf13/viper",
     "github.com/stellar/go/build",
     "github.com/stellar/go/clients/horizon",

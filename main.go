@@ -7,6 +7,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/jinzhu/gorm"
+	pubnub "github.com/pubnub/go"
 	"github.com/spf13/viper"
 )
 
@@ -207,6 +208,7 @@ type BankConfig struct {
 	DBconnectionParams DBconnectionParams
 	DB                 *gorm.DB
 	BankPoolAccID      string
+	Pn                 *pubnub.PubNub
 }
 
 func readConfig(configFilePath string) BankConfig {
@@ -259,6 +261,17 @@ func main() {
 	defer db.Close()
 
 	bankConfig.DB = db
+
+	var config = pubnub.NewConfig()
+	config.PublishKey = "pub-c-6afff62e-d5f2-4369-9bed-5baabcf26564"
+	config.SubscribeKey = "sub-c-302c34e4-d1c4-11e8-b41d-e643bd6bdd68"
+
+	pn := pubnub.NewPubNub(config)
+	pn.Subscribe().
+		Channels([]string{"notifications"}). // subscribe to channels
+		Execute()
+
+	bankConfig.Pn = pn
 
 	go listenForPayments(bankConfig)
 	StartServer(bankConfig)

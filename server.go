@@ -92,17 +92,13 @@ func receivePayment(bank BankConfig, transaction horizon.Transaction) error {
 		return err
 	}
 
-	// client := pusher.Client{
-	// 	AppId:   "616847",
-	// 	Key:     "1a2a85ebc215a91e0ee8",
-	// 	Secret:  "32bdbb06e06bb870e9e2",
-	// 	Cluster: "ap2",
-	// 	Secure:  true,
-	// }
+	res, status, err := bank.Pn.Publish().
+		Channel("notifications"). // have to change this to receiverAccount.ID
+		Message([]string{fmt.Sprintf("Received %f", paymentInfo.Amount)}).
+		UsePost(true).
+		Execute()
 
-	// data := map[string]string{"message": "hello world"}
-	// fmt.Printf("This shit working %+v\n", data)
-	// client.Trigger("my-channel", "my-event", data)
+	fmt.Println(res, status, err)
 
 	return nil
 }
@@ -370,6 +366,7 @@ func StartServer(bank BankConfig) {
 	http.HandleFunc("/accountDetails", makeHandler(getAccountDetails, bank))
 	http.HandleFunc("/withdrawAmount", makeHandler(withdrawAmount, bank))
 	http.HandleFunc("/depositAmount", makeHandler(depositAmount, bank))
+
 	fmt.Println("\n\nserver is starting...")
 	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", bank.Port), nil)
 	if err != nil {

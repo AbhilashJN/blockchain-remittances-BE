@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -23,9 +24,13 @@ func pong(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, "ParseForm fail", http.StatusBadRequest)
 		}
-		fmt.Printf("pong, %s", r.FormValue("Value"))
+		fmt.Printf("\npong, %s\n", r.FormValue("Value"))
 		fmt.Fprintln(w, fmt.Sprintf("pong, %s", r.FormValue("Value")))
 	}
+}
+
+func registerDevice() {
+
 }
 
 // ListenForPayments returns
@@ -97,17 +102,17 @@ func receivePayment(bank BankConfig, transaction horizon.Transaction) error {
 		return err
 	}
 
-	var dat map[string]interface{}
-
-	byt := []byte(`{"pn_gcm":{"data":{"message":"Hello cunty."}}}`)
-
-	if err := json.Unmarshal(byt, &dat); err != nil {
-		panic(err)
+	pushDataInJSONencoding := []byte(fmt.Sprintf(`{"pn_gcm":{"data":{"message":"Hello %s from server"}}}`, receiverAccount.ID))
+	var pushDataInNativeDataType map[string]interface{}
+	if err := json.Unmarshal(pushDataInJSONencoding, &pushDataInNativeDataType); err != nil {
+		return errors.New("unmarshalling error: Push Notifcation could not be sent. JSON data cannot be unmarshalled into native daat type")
 	}
 
+	fmt.Printf("Pushing notif to %s account\n", receiverAccount.ID)
+
 	response, status, err := bank.Pn.Publish().
-		Channel("notifications").
-		Message(dat).
+		Channel(receiverAccount.ID).
+		Message(pushDataInNativeDataType).
 		UsePost(true).
 		Execute()
 	if err != nil {

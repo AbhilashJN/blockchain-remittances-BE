@@ -19,7 +19,7 @@ func pong(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			http.Error(w, "ParseForm fail", http.StatusBadRequest)
 		}
-		fmt.Printf("pong, %s", r.FormValue("Value"))
+		fmt.Printf("\npong, %s\n", r.FormValue("Value"))
 		fmt.Fprintln(w, fmt.Sprintf("pong, %s", r.FormValue("Value")))
 	}
 }

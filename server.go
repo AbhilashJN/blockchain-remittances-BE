@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -19,8 +20,17 @@ import (
 
 func pong(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
-		fmt.Fprintln(w, "pong")
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, "ParseForm fail", http.StatusBadRequest)
+		}
+		fmt.Printf("\npong, %s\n", r.FormValue("Value"))
+		fmt.Fprintln(w, fmt.Sprintf("pong, %s", r.FormValue("Value")))
 	}
+}
+
+func registerDevice() {
+
 }
 
 // ListenForPayments returns
@@ -92,17 +102,26 @@ func receivePayment(bank BankConfig, transaction horizon.Transaction) error {
 		return err
 	}
 
-	// client := pusher.Client{
-	// 	AppId:   "616847",
-	// 	Key:     "1a2a85ebc215a91e0ee8",
-	// 	Secret:  "32bdbb06e06bb870e9e2",
-	// 	Cluster: "ap2",
-	// 	Secure:  true,
-	// }
+	pushDataInJSONencoding := []byte(fmt.Sprintf(`{"pn_gcm":{"data":{"message":"Hello %s from server"}}}`, receiverAccount.ID))
+	var pushDataInNativeDataType map[string]interface{}
+	if err := json.Unmarshal(pushDataInJSONencoding, &pushDataInNativeDataType); err != nil {
+		return errors.New("unmarshalling error: Push Notifcation could not be sent. JSON data cannot be unmarshalled into native daat type")
+	}
 
-	// data := map[string]string{"message": "hello world"}
-	// fmt.Printf("This shit working %+v\n", data)
-	// client.Trigger("my-channel", "my-event", data)
+	fmt.Printf("Pushing notif to %s account\n", receiverAccount.ID)
+
+	response, status, err := bank.Pn.Publish().
+		Channel(receiverAccount.ID).
+		Message(pushDataInNativeDataType).
+		UsePost(true).
+		Execute()
+	if err != nil {
+		// Request processing failed.
+		// Handle message publish error
+		fmt.Println(response, status, err)
+	}
+
+	fmt.Println(response, status, err)
 
 	return nil
 }
@@ -370,6 +389,7 @@ func StartServer(bank BankConfig) {
 	http.HandleFunc("/accountDetails", makeHandler(getAccountDetails, bank))
 	http.HandleFunc("/withdrawAmount", makeHandler(withdrawAmount, bank))
 	http.HandleFunc("/depositAmount", makeHandler(depositAmount, bank))
+
 	fmt.Println("\n\nserver is starting...")
 	err := http.ListenAndServe(fmt.Sprintf("localhost:%s", bank.Port), nil)
 	if err != nil {

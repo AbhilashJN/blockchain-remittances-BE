@@ -13,6 +13,17 @@ import (
 	"github.com/spf13/viper"
 )
 
+func pong(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		err := r.ParseForm()
+		if err != nil {
+			http.Error(w, "ParseForm fail", http.StatusBadRequest)
+		}
+		fmt.Printf("\npong, %s\n", r.FormValue("Value"))
+		fmt.Fprintln(w, fmt.Sprintf("pong, %s", r.FormValue("Value")))
+	}
+}
+
 func getUserInfo(w http.ResponseWriter, r *http.Request, db *gorm.DB) {
 	if r.Method == "GET" {
 		if err := r.ParseForm(); err != nil {
@@ -262,6 +273,7 @@ func main() {
 	http.HandleFunc("/registerNewUser", makeHandler(registerNewUser, db))
 	http.HandleFunc("/getUserInfo", makeHandler(getUserInfo, db))
 	http.HandleFunc("/getBanksList", makeHandler(getBanksList, db))
+	http.HandleFunc("/ping", pong)
 	fmt.Println("\n\nRegistartion server is starting...")
 	err = http.ListenAndServe(serverAddress, nil)
 	if err != nil {

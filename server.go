@@ -102,7 +102,7 @@ func receivePayment(bank BankConfig, transaction horizon.Transaction) error {
 		return err
 	}
 
-	pushDataInJSONencoding := []byte(fmt.Sprintf(`{"pn_gcm":{"data":{"message":"Hello %s from server"}}}`, receiverAccount.ID))
+	pushDataInJSONencoding := []byte(fmt.Sprintf(`{"pn_gcm":{"data":{"message":"Received %s %f from %s"}}}`, bank.NativeCurrency, paymentInfo.Amount, paymentInfo.SenderName))
 	var pushDataInNativeDataType map[string]interface{}
 	if err := json.Unmarshal(pushDataInJSONencoding, &pushDataInNativeDataType); err != nil {
 		return errors.New("unmarshalling error: Push Notifcation could not be sent. JSON data cannot be unmarshalled into native daat type")

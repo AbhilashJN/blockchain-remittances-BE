@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -238,7 +239,7 @@ func readConfig() {
 	}
 
 	// Confirm which config file is used
-	fmt.Printf("Using config: %s\n", viper.ConfigFileUsed())
+	fmt.Printf("Using config: %s\n\n", viper.ConfigFileUsed())
 
 	if err := viper.Unmarshal(&config); err != nil {
 		log.Fatalf("unable to decode into struct, %v", err)
@@ -248,10 +249,22 @@ func readConfig() {
 func init() {
 	readConfig()
 	// fmt.Printf("%+v\n", config)
-
 }
 
+func migrateAndSeed(db *gorm.DB) {
+	fmt.Printf("Running migration... \n\n")
+	db.DropTableIfExists(&models.User{}, &models.Bank{})
+	db.AutoMigrate(&models.User{}, &models.Bank{})
+	db.Model(&models.User{}).AddForeignKey("bank_name", "banks(name)", "CASCADE", "CASCADE")
+
+	fmt.Printf("Running seed... \n\n")
+	seedTables(db)
+}
+
+var toMigrateAndSeedPtr = flag.Bool("migrateAndSeed", false, "flag to run migare and seed")
+
 func main() {
+	flag.Parse()
 	dbConfig := config.Database
 	dbConnectionParams := fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=disable password=%s", dbConfig.Host, dbConfig.Port, dbConfig.User, dbConfig.DbName, dbConfig.Password)
 
@@ -262,11 +275,11 @@ func main() {
 
 	defer db.Close()
 
-	db.DropTableIfExists(&models.User{}, &models.Bank{})
-	db.AutoMigrate(&models.User{}, &models.Bank{})
-	db.Model(&models.User{}).AddForeignKey("bank_name", "banks(name)", "CASCADE", "CASCADE")
+	toMigrateAndSeed := *toMigrateAndSeedPtr
 
-	seedTables(db)
+	if toMigrateAndSeed {
+		migrateAndSeed(db)
+	}
 
 	serverAddress := fmt.Sprintf("localhost:%s", config.AppServer.Port)
 	print(serverAddress)

@@ -205,6 +205,7 @@ type BankConfig struct {
 	StellarSeeds       Keys
 	StellarAddresses   Keys
 	StellarAssetCode   string
+	NativeCurrency     string
 	DBconnectionParams DBconnectionParams
 	DB                 *gorm.DB
 	BankPoolAccID      string
